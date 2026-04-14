@@ -1,7 +1,8 @@
 """Integration tests for the FastAPI webhook server.
 
 Covers: route availability, demo event pre-loading, repro endpoints,
-static file serving, health check, and CRC/signature helpers.
+static file serving, health check, CRC/signature helpers,
+official-envelope roundtrip, PII scrub coverage, and web asset serving.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ def client():
 
 # ── Health & meta ─────────────────────────────────────────────────────────────
 
+
 def test_health_returns_ok(client):
     r = client.get("/health")
     assert r.status_code == 200
@@ -36,6 +38,7 @@ def test_docs_available(client):
 
 
 # ── Demo events pre-loaded ────────────────────────────────────────────────────
+
 
 def test_demo_events_preloaded(client):
     """App should have ≥2 demo events injected at startup."""
@@ -57,6 +60,7 @@ def test_demo_events_are_flagged(client):
 
 # ── Event log CRUD ────────────────────────────────────────────────────────────
 
+
 def test_clear_events_reinjects_demos(client):
     r = client.delete("/api/events")
     assert r.status_code == 200
@@ -73,6 +77,7 @@ def test_events_limit_param(client):
 
 
 # ── Simulate ──────────────────────────────────────────────────────────────────
+
 
 def test_simulate_chat_received(client):
     r = client.post("/api/simulate/chat.received", json={})
@@ -108,11 +113,13 @@ def test_simulate_increments_event_count(client):
 
 # ── CRC ───────────────────────────────────────────────────────────────────────
 
+
 def test_crc_endpoint_with_secret_returns_200(client, monkeypatch):
     """When CONSUMER_SECRET is set, GET /webhook should return 200 with response_token."""
     monkeypatch.setenv("CONSUMER_SECRET", "testsecret")
     # Re-create app so it picks up the env var
     from playground.webhook.server import create_app as _create
+
     c = TestClient(_create())
     r = c.get("/webhook?crc_token=testtoken")
     assert r.status_code == 200
@@ -120,10 +127,13 @@ def test_crc_endpoint_with_secret_returns_200(client, monkeypatch):
 
 
 def test_compute_crc_api(client):
-    r = client.post("/api/webhook/crc", json={
-        "crc_token": "testtoken",
-        "consumer_secret": "mysecret",
-    })
+    r = client.post(
+        "/api/webhook/crc",
+        json={
+            "crc_token": "testtoken",
+            "consumer_secret": "mysecret",
+        },
+    )
     assert r.status_code == 200
     body = r.json()
     assert "response_token" in body
@@ -132,11 +142,15 @@ def test_compute_crc_api(client):
 
 # ── Signature explain ─────────────────────────────────────────────────────────
 
+
 def test_signature_explain(client):
-    r = client.post("/api/signature/explain", json={
-        "payload": '{"event_type":"chat.received"}',
-        "consumer_secret": "mysecret",
-    })
+    r = client.post(
+        "/api/signature/explain",
+        json={
+            "payload": '{"event_type":"chat.received"}',
+            "consumer_secret": "mysecret",
+        },
+    )
     assert r.status_code == 200
     body = r.json()
     assert "header_value" in body
@@ -144,6 +158,7 @@ def test_signature_explain(client):
 
 
 # ── Repro packs ───────────────────────────────────────────────────────────────
+
 
 def test_repro_list_returns_packs(client):
     r = client.get("/api/repro/list")
@@ -171,6 +186,7 @@ def test_repro_run_unknown_pack_returns_404(client):
 
 # ── Webhook POST (no secret configured) ──────────────────────────────────────
 
+
 def test_webhook_post_no_secret_logs_event(client):
     payload = json.dumps({"event_type": "chat.received"}).encode()
     r = client.post(
@@ -193,6 +209,7 @@ def test_webhook_post_invalid_json_still_logs(client):
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 
+
 def test_ui_returns_html(client):
     r = client.get("/ui")
     assert r.status_code == 200
@@ -201,6 +218,7 @@ def test_ui_returns_html(client):
 
 
 # ── Per-instance isolation ────────────────────────────────────────────────────
+
 
 def test_two_app_instances_have_separate_event_logs():
     """Each create_app() call must have its own event log."""
@@ -215,3 +233,96 @@ def test_two_app_instances_have_separate_event_logs():
 
     # c1 has one more event than c2 (both start with 2 demo events)
     assert count1 == count2 + 1
+
+
+# ── Official XAA envelope roundtrip ──────────────────────────────────────────
+
+
+def test_official_envelope_webhook_export_roundtrip(client):
+    """Official XAA envelope: POST /webhook → /api/events/export → event_type preserved."""
+    # Send an official XAA envelope to /webhook
+    official_event = {
+        "data": {
+            "event_type": "chat.received",
+            "payload": {
+                "conversation_id": "DM_111_222",
+                "encoded_event": "STUB_ENC_SGVsbG8h",
+                "encrypted_conversation_key": "STUB_KEY_abc123",
+                "conversation_key_version": "1",
+                "conversation_token": "STUB_TOKEN_xyz",
+            },
+        }
+    }
+    r = client.post(
+        "/webhook",
+        content=json.dumps(official_event).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    assert r.status_code == 200
+    assert r.json()["event_type"] == "chat.received"
+
+    # Export and verify event_type is preserved in the JSONL
+    export_r = client.get("/api/events/export?skip_demo=true&scrub_pii=false")
+    assert export_r.status_code == 200
+    lines = [line for line in export_r.text.splitlines() if line.strip()]
+    assert lines, "Export should contain at least one event"
+
+    # Find the official event in the export
+    exported_events = [json.loads(line) for line in lines]
+    received_events = [
+        e
+        for e in exported_events
+        if e.get("data", {}).get("event_type") == "chat.received"
+    ]
+    assert received_events, "Exported JSONL should contain the chat.received event"
+    # Verify the official envelope structure is preserved
+    payload = received_events[0]["data"]["payload"]
+    assert "encoded_event" in payload
+
+
+# ── PII scrub covers official schema fields ───────────────────────────────────
+
+
+def test_pii_scrub_covers_conversation_token_and_encoded_event(client):
+    """Export with scrub_pii=true should redact conversation_token and encoded_event."""
+    from playground.replay.recorder import EventRecorder
+
+    recorder = EventRecorder(scrub_pii=True)
+    event = {
+        "data": {
+            "event_type": "chat.received",
+            "payload": {
+                "conversation_id": "DM_REAL_111_222",
+                "conversation_token": "REAL_TOKEN_abc123",
+                "encoded_event": "REAL_ENCODED_BASE64_DATA",
+                "encrypted_conversation_key": "REAL_KEY_MATERIAL",
+                "conversation_key_version": "1",
+            },
+        }
+    }
+    scrubbed = recorder.record(event)
+    payload = scrubbed["data"]["payload"]
+
+    # conversation_token → FAKE_CONV_xxx (it's in _PII_CONV_FIELDS)
+    assert payload["conversation_token"] != "REAL_TOKEN_abc123"
+    assert payload["conversation_token"].startswith("FAKE_CONV_")
+
+    # encoded_event → REDACTED_ENCODED_EVENT (crypto blob)
+    assert payload["encoded_event"] == "REDACTED_ENCODED_EVENT"
+
+    # encrypted_conversation_key → REDACTED_ENCRYPTED_KEY (crypto blob)
+    assert payload["encrypted_conversation_key"] == "REDACTED_ENCRYPTED_KEY"
+
+    # conversation_id → FAKE_CONV_xxx (it's in _PII_CONV_FIELDS)
+    assert payload["conversation_id"] != "DM_REAL_111_222"
+    assert payload["conversation_id"].startswith("FAKE_CONV_")
+
+
+# ── Web asset serving ─────────────────────────────────────────────────────────
+
+
+def test_web_app_js_served(client):
+    """GET /web/app.js should return 200 — verifies playground/web/ is packaged."""
+    r = client.get("/web/app.js")
+    assert r.status_code == 200
+    assert "javascript" in r.headers.get("content-type", "").lower() or len(r.text) > 0

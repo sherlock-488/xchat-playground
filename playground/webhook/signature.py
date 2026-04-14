@@ -38,7 +38,9 @@ def generate_signature(payload: bytes, consumer_secret: str) -> str:
     return "sha256=" + base64.b64encode(digest).decode("utf-8")
 
 
-def verify_signature(payload: bytes, signature_header: str, consumer_secret: str) -> bool:
+def verify_signature(
+    payload: bytes, signature_header: str, consumer_secret: str
+) -> bool:
     """Verify a webhook payload against its x-twitter-webhooks-signature header.
 
     Uses constant-time comparison to prevent timing attacks.
@@ -70,7 +72,8 @@ def explain_signature(payload: bytes, consumer_secret: str) -> dict:
         "algorithm": "HMAC-SHA256",
         "key": f"{consumer_secret[:4]}...{consumer_secret[-4:]} ({len(consumer_secret)} chars)",
         "payload_length": len(payload),
-        "payload_preview": payload[:64].decode("utf-8", errors="replace") + ("..." if len(payload) > 64 else ""),
+        "payload_preview": payload[:64].decode("utf-8", errors="replace")
+        + ("..." if len(payload) > 64 else ""),
         "raw_digest_hex": digest.hex(),
         "base64_digest": b64,
         "header_value": f"sha256={b64}",

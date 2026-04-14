@@ -71,14 +71,24 @@ class EventSimulator:
 
         if schema == "official":
             return self._official_envelope(
-                event_type, sender_id, recipient_id, conv_id, msg_id, now,
+                event_type,
+                sender_id,
+                recipient_id,
+                conv_id,
+                msg_id,
+                now,
                 message_text,
             )
 
         if event_type == EventType.CHAT_RECEIVED:
             return self._chat_received(
-                sender_id, recipient_id, conv_id, msg_id, now,
-                encrypted, message_text,
+                sender_id,
+                recipient_id,
+                conv_id,
+                msg_id,
+                now,
+                encrypted,
+                message_text,
             )
         elif event_type == EventType.CHAT_SENT:
             return self._chat_sent(sender_id, recipient_id, conv_id, msg_id, now)

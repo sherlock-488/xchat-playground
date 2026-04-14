@@ -40,7 +40,7 @@ Test with: `uv run playground webhook crc <token>`
 
 After XChat E2EE is enabled on a conversation:
 - `GET /2/dm_events/{id}` returns `{}`
-- Message content is **only** in the `encrypted_content` field of the Activity Stream event
+- Message content is **only** in the `data.payload.encoded_event` field of the Activity Stream event (official XAA envelope)
 
 See: [Repro Pack — encrypted-lookup-empty](repro-packs.md#encrypted-lookup-empty)
 

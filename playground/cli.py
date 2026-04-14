@@ -41,6 +41,7 @@ app.add_typer(repro_app, name="repro")
 
 # ── serve ─────────────────────────────────────────────────────────────────────
 
+
 @app.command()
 def serve(
     host: str = typer.Option("127.0.0.1", help="Host to bind"),
@@ -50,17 +51,18 @@ def serve(
     """Start the local webhook server + web UI at http://localhost:7474"""
     import uvicorn
 
-
-    console.print(Panel(
-        f"[bold green]xchat-playground[/] server starting\n"
-        f"  Web UI  → [link]http://{host}:{port}/ui[/link]\n"
-        f"  Webhook → [link]http://{host}:{port}/webhook[/link]\n"
-        f"  API     → [link]http://{host}:{port}/docs[/link]\n\n"
-        "[dim]Tip: expose publicly with: npx cloudflared tunnel --url "
-        f"http://localhost:{port}[/dim]",
-        title="🧪 xchat-playground",
-        border_style="green",
-    ))
+    console.print(
+        Panel(
+            f"[bold green]xchat-playground[/] server starting\n"
+            f"  Web UI  → [link]http://{host}:{port}/ui[/link]\n"
+            f"  Webhook → [link]http://{host}:{port}/webhook[/link]\n"
+            f"  API     → [link]http://{host}:{port}/docs[/link]\n\n"
+            "[dim]Tip: expose publicly with: npx cloudflared tunnel --url "
+            f"http://localhost:{port}[/dim]",
+            title="🧪 xchat-playground",
+            border_style="green",
+        )
+    )
 
     uvicorn.run(
         "playground.webhook.server:create_app",
@@ -73,6 +75,7 @@ def serve(
 
 
 # ── doctor ────────────────────────────────────────────────────────────────────
+
 
 @app.command()
 def doctor():
@@ -93,15 +96,33 @@ def doctor():
 
     # xurl
     xurl_path = shutil.which("xurl")
-    checks.append(("xurl installed", bool(xurl_path), xurl_path or "not found — see https://github.com/xdevplatform/xurl"))
+    checks.append(
+        (
+            "xurl installed",
+            bool(xurl_path),
+            xurl_path or "not found — see https://github.com/xdevplatform/xurl",
+        )
+    )
 
     # .env file
     env_exists = Path(".env").exists()
-    checks.append((".env file", env_exists, ".env found" if env_exists else "missing — copy .env.example"))
+    checks.append(
+        (
+            ".env file",
+            env_exists,
+            ".env found" if env_exists else "missing — copy .env.example",
+        )
+    )
 
     # state.json (xchat-bot-python key material)
     state_exists = Path("state.json").exists()
-    checks.append(("state.json", state_exists, "found" if state_exists else "not present (needed for real-key crypto)"))
+    checks.append(
+        (
+            "state.json",
+            state_exists,
+            "found" if state_exists else "not present (needed for real-key crypto)",
+        )
+    )
 
     # state.json not committed
     if state_exists:
@@ -110,8 +131,13 @@ def doctor():
             capture_output=True,
         )
         ignored = result.returncode == 0
-        checks.append(("state.json in .gitignore", ignored,
-                        "✓ safe" if ignored else "⚠️  ADD state.json TO .gitignore NOW"))
+        checks.append(
+            (
+                "state.json in .gitignore",
+                ignored,
+                "✓ safe" if ignored else "⚠️  ADD state.json TO .gitignore NOW",
+            )
+        )
 
     table = Table(title="Environment Check", show_header=True, header_style="bold cyan")
     table.add_column("Check", style="bold")
@@ -130,22 +156,35 @@ def doctor():
     if all_ok:
         console.print("\n[bold green]All checks passed! You're ready to build.[/]")
     else:
-        console.print("\n[bold yellow]Some checks failed. Fix the issues above before running live tests.[/]")
+        console.print(
+            "\n[bold yellow]Some checks failed. Fix the issues above before running live tests.[/]"
+        )
         raise typer.Exit(1)
 
 
 # ── simulate commands ─────────────────────────────────────────────────────────
 
+
 @simulate_app.command("chat-received")
 def simulate_chat_received(
     sender_id: str = typer.Option("111222333", help="Sender user ID"),
     recipient_id: str = typer.Option("444555666", help="Recipient user ID"),
-    conversation_id: str = typer.Option(None, help="Conversation ID (auto-generated if omitted)"),
+    conversation_id: str = typer.Option(
+        None, help="Conversation ID (auto-generated if omitted)"
+    ),
     encrypted: bool = typer.Option(True, help="Include stub encrypted payload"),
+    schema: str = typer.Option(
+        "demo",
+        help="Fixture schema: 'demo' (flat, for teaching) or 'official' (XAA envelope, mirrors xchat-bot-python)",
+    ),
     output: Path | None = typer.Option(None, "--output", "-o", help="Save to file"),
     pretty: bool = typer.Option(True, help="Pretty-print JSON"),
 ):
-    """Generate a chat.received event fixture."""
+    """Generate a chat.received event fixture.
+
+    Use --schema official to produce the real X Activity API envelope:
+      {"data": {"event_type": "chat.received", "payload": {...}}}
+    """
     from playground.simulator.events import EventSimulator, EventType
 
     sim = EventSimulator()
@@ -155,6 +194,7 @@ def simulate_chat_received(
         recipient_id=recipient_id,
         conversation_id=conversation_id,
         encrypted=encrypted,
+        schema=schema,
     )
     _output_json(event, output, pretty)
 
@@ -169,7 +209,9 @@ def simulate_chat_sent(
     from playground.simulator.events import EventSimulator, EventType
 
     sim = EventSimulator()
-    event = sim.generate(EventType.CHAT_SENT, sender_id=sender_id, recipient_id=recipient_id)
+    event = sim.generate(
+        EventType.CHAT_SENT, sender_id=sender_id, recipient_id=recipient_id
+    )
     _output_json(event, output, pretty=True)
 
 
@@ -190,6 +232,10 @@ def simulate_conversation_join(
 def simulate_batch(
     count: int = typer.Option(5, help="Number of events to generate"),
     event_type: str = typer.Option("chat.received", help="Event type"),
+    schema: str = typer.Option(
+        "demo",
+        help="Fixture schema: 'demo' (flat) or 'official' (XAA envelope)",
+    ),
     output: Path = typer.Option(Path("fixtures/batch.jsonl"), "--output", "-o"),
 ):
     """Generate a batch of events and save as JSONL."""
@@ -206,34 +252,43 @@ def simulate_batch(
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w") as f:
         for _ in range(count):
-            event = sim.generate(et)
+            event = sim.generate(et, schema=schema)
             f.write(json.dumps(event) + "\n")
 
-    console.print(f"[green]✓[/] Wrote {count} events to [bold]{output}[/]")
+    console.print(
+        f"[green]✓[/] Wrote {count} {schema}-schema events to [bold]{output}[/]"
+    )
 
 
 # ── webhook commands ──────────────────────────────────────────────────────────
 
+
 @webhook_app.command("crc")
 def webhook_crc(
     crc_token: str = typer.Argument(..., help="CRC token from X"),
-    consumer_secret: str = typer.Option(None, envvar="CONSUMER_SECRET", help="Your app's consumer secret"),
+    consumer_secret: str = typer.Option(
+        None, envvar="CONSUMER_SECRET", help="Your app's consumer secret"
+    ),
 ):
     """Compute the CRC challenge response for a given token."""
     from playground.webhook.crc import compute_crc_response
 
     if not consumer_secret:
-        console.print("[red]Error:[/] CONSUMER_SECRET not set. Pass --consumer-secret or set env var.")
+        console.print(
+            "[red]Error:[/] CONSUMER_SECRET not set. Pass --consumer-secret or set env var."
+        )
         raise typer.Exit(1)
 
     response = compute_crc_response(crc_token, consumer_secret)
-    console.print(Panel(
-        f"[bold]CRC Token:[/]    {crc_token}\n"
-        f"[bold]Response:[/]     {response['response_token']}\n\n"
-        "[dim]Return this JSON body to X:[/dim]\n"
-        f'[green]{json.dumps(response, indent=2)}[/green]',
-        title="CRC Challenge Response",
-    ))
+    console.print(
+        Panel(
+            f"[bold]CRC Token:[/]    {crc_token}\n"
+            f"[bold]Response:[/]     {response['response_token']}\n\n"
+            "[dim]Return this JSON body to X:[/dim]\n"
+            f"[green]{json.dumps(response, indent=2)}[/green]",
+            title="CRC Challenge Response",
+        )
+    )
 
 
 @webhook_app.command("verify")
@@ -246,7 +301,9 @@ def webhook_verify(
     from playground.webhook.signature import verify_signature
 
     if not consumer_secret:
-        console.print("[red]Error:[/] CONSUMER_SECRET not set. Pass --consumer-secret or set in .env")
+        console.print(
+            "[red]Error:[/] CONSUMER_SECRET not set. Pass --consumer-secret or set in .env"
+        )
         raise typer.Exit(1)
 
     valid = verify_signature(payload.encode(), signature, consumer_secret)
@@ -259,10 +316,13 @@ def webhook_verify(
 
 # ── replay commands ───────────────────────────────────────────────────────────
 
+
 @replay_app.command("run")
 def replay_run(
     fixture: Path = typer.Argument(..., help="Path to event fixture JSON or JSONL"),
-    target: str = typer.Option("http://127.0.0.1:7474/webhook", help="Handler URL to replay against"),
+    target: str = typer.Option(
+        "http://127.0.0.1:7474/webhook", help="Handler URL to replay against"
+    ),
     delay: float = typer.Option(0.1, help="Delay between events (seconds)"),
 ):
     """Replay a fixture file against a local webhook handler."""
@@ -309,8 +369,12 @@ def replay_export(
     server: str = typer.Option("http://127.0.0.1:7474", help="playground server URL"),
     output: Path = typer.Option(Path("recordings/export.jsonl"), "--output", "-o"),
     limit: int = typer.Option(200, help="Max events to export"),
-    no_scrub: bool = typer.Option(False, "--no-scrub", help="Disable PII scrubbing (use with caution)"),
-    include_demo: bool = typer.Option(False, "--include-demo", help="Include injected demo events"),
+    no_scrub: bool = typer.Option(
+        False, "--no-scrub", help="Disable PII scrubbing (use with caution)"
+    ),
+    include_demo: bool = typer.Option(
+        False, "--include-demo", help="Include injected demo events"
+    ),
 ):
     """Export events from the running playground server as a scrubbed JSONL file.
 
@@ -328,7 +392,9 @@ def replay_export(
         r = httpx.get(url, timeout=10)
         r.raise_for_status()
     except httpx.ConnectError as err:
-        console.print(f"[red]Error:[/] Cannot connect to {server}. Is the server running?")
+        console.print(
+            f"[red]Error:[/] Cannot connect to {server}. Is the server running?"
+        )
         console.print("[dim]Start it with: playground serve[/dim]")
         raise typer.Exit(1) from err
     except httpx.HTTPStatusError as e:
@@ -341,56 +407,77 @@ def replay_export(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(content)
 
-    console.print(Panel(
-        f"[bold green]✓ Exported {event_count} events[/]\n\n"
-        f"[bold]Output:[/]  {output}\n"
-        f"[bold]Scrubbed:[/] {'yes — real IDs replaced with FAKE_USER_xxx' if scrub else '[yellow]NO — real IDs preserved[/yellow]'}\n\n"
-        "[dim]Replay with: playground replay run {output}[/dim]",
-        title="Replay Export",
-        border_style="green",
-    ))
+    console.print(
+        Panel(
+            f"[bold green]✓ Exported {event_count} events[/]\n\n"
+            f"[bold]Output:[/]  {output}\n"
+            f"[bold]Scrubbed:[/] {'yes — real IDs replaced with FAKE_USER_xxx' if scrub else '[yellow]NO — real IDs preserved[/yellow]'}\n\n"
+            "[dim]Replay with: playground replay run {output}[/dim]",
+            title="Replay Export",
+            border_style="green",
+        )
+    )
 
 
 # ── crypto commands ───────────────────────────────────────────────────────────
 
+
 @crypto_app.command("stub")
 def crypto_stub(
-    payload: str = typer.Argument(..., help="Encrypted payload (or 'STUB_*' fixture value)"),
+    payload: str = typer.Argument(
+        ..., help="Encrypted payload (or 'STUB_*' fixture value)"
+    ),
 ):
     """Decrypt using stub mode (returns plaintext fixture, no real keys needed)."""
     from playground.crypto.stub import StubCrypto
 
     result = StubCrypto().decrypt(payload)
-    console.print(Panel(
-        f"[bold]Input:[/]  {payload}\n"
-        f"[bold]Output:[/] [green]{result['plaintext']}[/green]\n\n"
-        "[dim]Mode: STUB — no real keys used[/dim]",
-        title="Crypto Sandbox (Stub Mode)",
-    ))
+    console.print(
+        Panel(
+            f"[bold]Input:[/]  {payload}\n"
+            f"[bold]Output:[/] [green]{result['plaintext']}[/green]\n\n"
+            "[dim]Mode: STUB — no real keys used[/dim]",
+            title="Crypto Sandbox (Stub Mode)",
+        )
+    )
 
 
 @crypto_app.command("real")
 def crypto_real(
-    payload: str = typer.Argument(..., help="Encrypted payload from XChat event"),
-    state_file: Path = typer.Option(Path("state.json"), help="Path to state.json from xchat-bot-python"),
+    encoded_event: str = typer.Argument(
+        ..., help="data.payload.encoded_event value from XChat Activity Stream event"
+    ),
+    enc_key: str = typer.Option(
+        None,
+        "--enc-key",
+        help="data.payload.encrypted_conversation_key (optional)",
+    ),
+    state_file: Path = typer.Option(
+        Path("state.json"), help="Path to state.json from xchat-bot-python"
+    ),
 ):
     """Decrypt using real private keys from state.json."""
     from playground.crypto.real import RealCrypto
 
     if not state_file.exists():
-        console.print(f"[red]Error:[/] {state_file} not found. Run xchat-bot-python login first.")
+        console.print(
+            f"[red]Error:[/] {state_file} not found. Run xchat-bot-python login first."
+        )
         raise typer.Exit(1)
 
     crypto = RealCrypto(state_file)
-    result = crypto.decrypt(payload)
-    console.print(Panel(
-        f"[bold]Plaintext:[/] [green]{result['plaintext']}[/green]\n"
-        f"[bold]Key used:[/]  {result['key_id']}",
-        title="Crypto Sandbox (Real-Key Mode)",
-    ))
+    result = crypto.decrypt(encoded_event, enc_key)
+    console.print(
+        Panel(
+            f"[bold]Plaintext:[/] [green]{result['plaintext']}[/green]\n"
+            f"[bold]Key used:[/]  {result['key_id']}",
+            title="Crypto Sandbox (Real-Key Mode)",
+        )
+    )
 
 
 # ── repro commands ────────────────────────────────────────────────────────────
+
 
 @repro_app.command("list")
 def repro_list():
@@ -398,7 +485,9 @@ def repro_list():
     from playground.repro.registry import list_packs
 
     packs = list_packs()
-    table = Table(title="Available Repro Packs", show_header=True, header_style="bold cyan")
+    table = Table(
+        title="Available Repro Packs", show_header=True, header_style="bold cyan"
+    )
     table.add_column("ID", style="bold")
     table.add_column("Title")
     table.add_column("Forum Thread", style="dim")
@@ -411,7 +500,9 @@ def repro_list():
 
 @repro_app.command("run")
 def repro_run(
-    pack_id: str = typer.Argument(..., help="Repro pack ID (from 'playground repro list')"),
+    pack_id: str = typer.Argument(
+        ..., help="Repro pack ID (from 'playground repro list')"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ):
     """Run a repro pack to reproduce a known XChat API bug."""
@@ -421,21 +512,29 @@ def repro_run(
     result = run_pack(pack_id, verbose=verbose)
 
     if result["reproduced"]:
-        console.print(Panel(
-            f"[bold yellow]Bug reproduced![/]\n\n"
-            f"[bold]Summary:[/] {result['summary']}\n\n"
-            f"[bold]Workaround:[/]\n{result['workaround']}",
-            title=f"Repro: {pack_id}",
-            border_style="yellow",
-        ))
+        console.print(
+            Panel(
+                f"[bold yellow]Bug reproduced![/]\n\n"
+                f"[bold]Summary:[/] {result['summary']}\n\n"
+                f"[bold]Workaround:[/]\n{result['workaround']}",
+                title=f"Repro: {pack_id}",
+                border_style="yellow",
+            )
+        )
     else:
-        console.print(f"[green]Could not reproduce[/] — {result.get('reason', 'no details')}")
+        console.print(
+            f"[green]Could not reproduce[/] — {result.get('reason', 'no details')}"
+        )
 
 
 @repro_app.command("check")
 def repro_check(
-    pack_id: str = typer.Argument(..., help="Repro pack ID (from 'playground repro list')"),
-    webhook_url: str = typer.Option(None, "--webhook-url", "-u", help="Your webhook URL to validate"),
+    pack_id: str = typer.Argument(
+        ..., help="Repro pack ID (from 'playground repro list')"
+    ),
+    webhook_url: str = typer.Option(
+        None, "--webhook-url", "-u", help="Your webhook URL to validate"
+    ),
 ):
     """Run the semi-automatic environment checker for a repro pack.
 
@@ -456,7 +555,11 @@ def repro_check(
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(1) from e
 
-    table = Table(title=f"Environment Check: {pack_id}", show_header=True, header_style="bold cyan")
+    table = Table(
+        title=f"Environment Check: {pack_id}",
+        show_header=True,
+        header_style="bold cyan",
+    )
     table.add_column("Check", style="bold")
     table.add_column("Status")
     table.add_column("Detail", style="dim")
@@ -490,6 +593,7 @@ def repro_check(
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _output_json(data: dict, output: Path | None, pretty: bool = True) -> None:
     text = json.dumps(data, indent=2 if pretty else None)

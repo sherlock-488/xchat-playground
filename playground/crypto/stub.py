@@ -34,7 +34,7 @@ class StubCrypto:
             Dict with 'plaintext', 'mode', and 'notes' keys.
         """
         if encrypted_content.startswith(STUB_PREFIX):
-            b64 = encrypted_content[len(STUB_PREFIX):]
+            b64 = encrypted_content[len(STUB_PREFIX) :]
             try:
                 plaintext = base64.b64decode(b64).decode("utf-8")
                 return {

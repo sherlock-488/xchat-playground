@@ -56,16 +56,22 @@ class RealCrypto:
             )
         self._state = json.loads(self.state_file.read_text())
 
-    def decrypt(self, encrypted_content: str, recipient_key_blob: str | None = None) -> dict:
+    def decrypt(
+        self, encoded_event: str, encrypted_conversation_key: str | None = None
+    ) -> dict:
         """Attempt to decrypt a real XChat message payload.
 
         Args:
-            encrypted_content: The encrypted_content field from the event.
-            recipient_key_blob: The per-recipient key blob (from recipient_keys[user_id]).
+            encoded_event: The data.payload.encoded_event field from the XAA event.
+            encrypted_conversation_key: The data.payload.encrypted_conversation_key field
+                (per-recipient encrypted symmetric key).
 
         Returns:
             Dict with 'plaintext', 'mode', 'key_id', and 'notes'.
         """
+        # Internal alias for backward compatibility
+        encrypted_content = encoded_event
+        recipient_key_blob = encrypted_conversation_key
         # Validate we have key material
         private_keys = self._state.get("private_keys", {})
         self._state.get("user_id", "unknown")
@@ -91,15 +97,20 @@ class RealCrypto:
         try:
             # Attempt basic base64 decode to check if it's a stub payload
             from playground.crypto.stub import STUB_PREFIX, StubCrypto
+
             if encrypted_content.startswith(STUB_PREFIX):
                 stub_result = StubCrypto().decrypt(encrypted_content)
                 stub_result["mode"] = "real-fallback-stub"
                 stub_result["key_id"] = key_version
-                stub_result["notes"] = "Stub payload detected in real-key mode. Using stub decode."
+                stub_result["notes"] = (
+                    "Stub payload detected in real-key mode. Using stub decode."
+                )
                 return stub_result
 
             # Real encrypted payload — attempt XChaCha20-Poly1305 decrypt
-            return self._xchacha20_decrypt(encrypted_content, recipient_key_blob, private_keys)
+            return self._xchacha20_decrypt(
+                encoded_event, recipient_key_blob, private_keys
+            )
 
         except Exception as e:
             return {
@@ -111,11 +122,16 @@ class RealCrypto:
 
     def _xchacha20_decrypt(
         self,
-        encrypted_content: str,
-        recipient_key_blob: str | None,
+        encoded_event: str,
+        encrypted_conversation_key: str | None,
         private_keys: dict,
     ) -> dict:
         """XChaCha20-Poly1305 decrypt flow (chat-xdk format).
+
+        Args:
+            encoded_event: data.payload.encoded_event — base64-encoded ciphertext.
+            encrypted_conversation_key: data.payload.encrypted_conversation_key.
+            private_keys: Private key map from state.json.
 
         This is a placeholder that documents the expected algorithm.
         Full implementation requires chat-xdk's stable release.
@@ -127,16 +143,18 @@ class RealCrypto:
         if not private_key_b64:
             raise ValueError("No private key found for decryption")
 
-        # Step 2: Decode the encrypted content
+        # Step 2: Decode the encoded_event (base64 ciphertext)
         try:
-            encrypted_bytes = base64.b64decode(encrypted_content)
+            encrypted_bytes = base64.b64decode(encoded_event)
         except Exception as err:
-            raise ValueError(f"Cannot base64-decode encrypted_content: {encrypted_content[:40]}...") from err
+            raise ValueError(
+                f"Cannot base64-decode encoded_event: {encoded_event[:40]}..."
+            ) from err
 
         # Step 3: Placeholder — real implementation needs chat-xdk
         # When chat-xdk is released, replace this with:
         #   from chat_xdk import decrypt_message
-        #   plaintext = decrypt_message(private_key_b64, recipient_key_blob, encrypted_bytes)
+        #   plaintext = decrypt_message(private_key_b64, encrypted_conversation_key, encrypted_bytes)
         return {
             "plaintext": None,
             "mode": "real",
@@ -145,7 +163,7 @@ class RealCrypto:
                 "chat-xdk not yet officially released. "
                 "This module will be updated when xdevplatform/xchat-bot-python "
                 "publishes the stable chat-xdk API. "
-                f"Encrypted payload length: {len(encrypted_bytes)} bytes. "
+                f"Encoded event length: {len(encrypted_bytes)} bytes. "
                 f"Private key version: {key_version}."
             ),
         }

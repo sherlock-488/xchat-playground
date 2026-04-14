@@ -63,7 +63,6 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
+# playground/web/ is inside the package — hatchling includes it automatically
+# because it's a subdirectory of the playground package with an __init__.py.
 packages = ["playground"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"web" = "xchat_playground/web"

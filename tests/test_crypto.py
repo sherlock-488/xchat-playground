@@ -28,7 +28,9 @@ class TestStubCrypto:
         result = crypto.decrypt("REAL_ENCRYPTED_PAYLOAD_XYZ")
         assert result["plaintext"].startswith("[REAL_ENCRYPTED:")
         assert result["mode"] == "stub"
-        assert "real-key" in result["notes"].lower() or "real" in result["notes"].lower()
+        assert (
+            "real-key" in result["notes"].lower() or "real" in result["notes"].lower()
+        )
 
     def test_decrypt_invalid_stub_graceful(self):
         crypto = StubCrypto()

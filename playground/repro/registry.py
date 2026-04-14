@@ -21,8 +21,7 @@ class ReproRegistry:
         klass = cls._packs.get(pack_id)
         if not klass:
             raise ValueError(
-                f"Unknown repro pack: '{pack_id}'. "
-                f"Available: {list(cls._packs.keys())}"
+                f"Unknown repro pack: '{pack_id}'. Available: {list(cls._packs.keys())}"
             )
         return klass()
 
@@ -32,12 +31,14 @@ def list_packs() -> list[dict]:
     result = []
     for pack_id, klass in ReproRegistry._packs.items():
         instance = klass()
-        result.append({
-            "id": pack_id,
-            "title": instance.title,
-            "description": instance.description,
-            "forum_url": getattr(instance, "forum_url", None),
-        })
+        result.append(
+            {
+                "id": pack_id,
+                "title": instance.title,
+                "description": instance.description,
+                "forum_url": getattr(instance, "forum_url", None),
+            }
+        )
     return result
 
 

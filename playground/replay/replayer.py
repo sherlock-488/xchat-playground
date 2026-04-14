@@ -66,12 +66,14 @@ class EventReplayer:
                 SIGNATURE_HEADER,
                 generate_signature,
             )
-            headers[SIGNATURE_HEADER] = generate_signature(payload, self.consumer_secret)
+
+            headers[SIGNATURE_HEADER] = generate_signature(
+                payload, self.consumer_secret
+            )
 
         # Support both official XAA envelope and flat demo fixtures
-        event_type = (
-            event.get("data", {}).get("event_type")
-            or event.get("event_type", "unknown")
+        event_type = event.get("data", {}).get("event_type") or event.get(
+            "event_type", "unknown"
         )
         try:
             response = await client.post(

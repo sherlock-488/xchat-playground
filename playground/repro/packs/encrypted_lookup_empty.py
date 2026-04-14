@@ -8,7 +8,8 @@ Root cause:
   After XChat's E2EE is enabled for a conversation, the legacy
   /2/dm_events endpoint no longer returns message content for
   encrypted conversations. The message content is only accessible
-  via the encrypted_content field in the Activity Stream event itself.
+  via the encoded_event field in the Activity Stream event payload
+  (official XAA envelope: data.payload.encoded_event).
 
 This is a breaking change from the pre-E2EE DM API behavior.
 
@@ -39,47 +40,48 @@ class EncryptedLookupEmptyPack:
             ),
             "workaround": (
                 "Do NOT call /2/dm_events/{id} to get message content for XChat conversations.\n"
-                "Instead: read encrypted_content directly from the Activity Stream event,\n"
+                "Instead: read encoded_event from the Activity Stream event payload,\n"
                 "then decrypt it using your private keys (see: playground crypto).\n\n"
                 "Migration pattern:\n"
                 "  OLD: receive event → lookup /2/dm_events/{id} → read .text\n"
-                "  NEW: receive event → read event.message.encrypted_content → decrypt"
+                "  NEW: receive event → read data.payload.encoded_event → decrypt"
             ),
             "scenario": scenario if verbose else None,
         }
 
     def _build_scenario(self) -> dict:
-        # Simulate the event
+        # Simulate the event (official XAA envelope from Activity Stream)
         event = {
-            "event_type": "chat.received",
-            "direct_message_events": [{
-                "id": "1234567890abcdef",
-                "event_type": "MessageCreate",
-                "dm_conversation_id": "DM_111_222",
-                "sender_id": "111222333",
-                "message": {
-                    "encrypted_content": "STUB_ENC_SGVsbG8h",
-                    "encryption_type": "XChaCha20Poly1305",
+            "data": {
+                "event_type": "chat.received",
+                "payload": {
+                    "conversation_id": "DM_111_222",
+                    "encoded_event": "STUB_ENC_SGVsbG8h",
+                    "encrypted_conversation_key": "STUB_KEY_abc123",
+                    "conversation_key_version": "1",
+                    "conversation_token": "STUB_TOKEN_1234567890abcdef",
                 },
-            }],
+            }
         }
 
         # What the old code does (broken)
         old_approach = {
             "code": (
-                "dm_event_id = event['direct_message_events'][0]['id']\n"
-                "resp = requests.get(f'/2/dm_events/{dm_event_id}', headers=auth)\n"
+                "# Wrong: trying to look up via REST after receiving event\n"
+                "conversation_token = event['data']['payload']['conversation_token']\n"
+                "resp = requests.get(f'/2/dm_events/{conversation_token}', headers=auth)\n"
                 "text = resp.json()['data']['text']  # KeyError! resp.json() == {}"
             ),
             "result": "{}",
-            "error": "KeyError: 'data' — because the response body is empty",
+            "error": "KeyError: 'data' — encrypted messages not exposed via REST endpoint",
         }
 
         # What the new code should do (correct)
         new_approach = {
             "code": (
-                "encrypted = event['direct_message_events'][0]['message']['encrypted_content']\n"
-                "plaintext = crypto.decrypt(encrypted)  # use your private keys\n"
+                "encoded = event['data']['payload']['encoded_event']\n"
+                "enc_key = event['data']['payload']['encrypted_conversation_key']\n"
+                "plaintext = crypto.decrypt(encoded, enc_key)  # use your private keys\n"
                 "# No REST lookup needed"
             ),
             "result": "Hello!",

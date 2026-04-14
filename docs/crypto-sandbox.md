@@ -32,20 +32,25 @@ uv run playground crypto real "REAL_ENCRYPTED_PAYLOAD" --state-file state.json
 ## The decryption flow
 
 ```
-chat.received event arrives
+chat.received event arrives (official XAA envelope)
   │
-  ├── event.message.encrypted_content  ← the ciphertext
-  ├── event.message.recipient_keys[your_user_id]  ← your encrypted symmetric key
-  └── event.message.key_version  ← which of your private keys to use
-          │
-          ▼
-  1. Look up private_key[key_version] from state.json
-  2. ECDH (X25519): decrypt recipient_key_blob → symmetric_key
-  3. XChaCha20-Poly1305: decrypt encrypted_content with symmetric_key
-          │
-          ▼
+  └── data.payload
+        ├── encoded_event              ← base64-encoded encrypted ciphertext
+        ├── encrypted_conversation_key ← per-recipient encrypted symmetric key
+        ├── conversation_key_version   ← which of your private keys to use
+        └── conversation_token         ← opaque conversation identifier
+                │
+                ▼
+  1. Look up private_key[conversation_key_version] from state.json
+  2. ECDH (X25519): decrypt encrypted_conversation_key → symmetric_key
+  3. XChaCha20-Poly1305: decrypt encoded_event with symmetric_key
+                │
+                ▼
   plaintext message
 ```
+
+> **Schema note:** Field names are inferred from [xchat-bot-python](https://github.com/xdevplatform/xchat-bot-python).
+> The official chat-xdk library is not yet released; this flow may be updated.
 
 ## Common mistake: don't call /2/dm_events/{id}
 

@@ -21,6 +21,7 @@ import json
 import os
 from collections import deque
 from datetime import datetime, timezone
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -41,14 +42,15 @@ from playground.webhook.signature import (
 # Load .env at import time so env vars are available immediately
 load_dotenv()
 
-# Web directory — dev layout: repo/web/; installed layout: xchat_playground/web/
-_WEB_DIR = Path(__file__).parent.parent.parent / "web"
-if not _WEB_DIR.exists():
-    # Installed via pip: web/ is bundled under xchat_playground/web/
-    _WEB_DIR = Path(__file__).parent.parent / "xchat_playground" / "web"
+# Web directory — resolved via importlib.resources so both source and
+# pip-installed layouts work correctly.
+# Source layout:   repo/playground/web/
+# Installed layout: site-packages/playground/web/
+_WEB_DIR = Path(str(files("playground").joinpath("web")))
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
+
 
 class SignatureExplainRequest(BaseModel):
     payload: str
@@ -61,6 +63,7 @@ class CRCRequest(BaseModel):
 
 
 # ── XAA envelope normalizer ───────────────────────────────────────────────────
+
 
 def _normalize_xaa_event(raw: dict) -> tuple[str, dict]:
     """Normalize an X Activity API event envelope into (event_type, payload).
@@ -91,6 +94,7 @@ def _normalize_xaa_event(raw: dict) -> tuple[str, dict]:
 
 # ── App factory ───────────────────────────────────────────────────────────────
 
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="xchat-playground",
@@ -112,20 +116,23 @@ def create_app() -> FastAPI:
     def _inject_demo_events() -> None:
         """Inject a couple of demo events so the UI is never blank on first open."""
         from playground.simulator.events import EventSimulator, EventType
+
         sim = EventSimulator()
         now = datetime.now(timezone.utc).isoformat()
         for et, label in [
             (EventType.CHAT_RECEIVED, "chat.received"),
             (EventType.CHAT_SENT, "chat.sent"),
         ]:
-            _log({
-                "received_at": now,
-                "event_type": label,
-                "signature_valid": None,
-                "simulated": True,
-                "demo": True,
-                "payload": sim.generate(et),
-            })
+            _log(
+                {
+                    "received_at": now,
+                    "event_type": label,
+                    "signature_valid": None,
+                    "simulated": True,
+                    "demo": True,
+                    "payload": sim.generate(et),
+                }
+            )
 
     _inject_demo_events()
 
@@ -167,8 +174,10 @@ def create_app() -> FastAPI:
         # Prefer official header; fall back to legacy alias
         sig_header = x_twitter_webhooks_signature or x_signature_256
         sig_source = (
-            SIGNATURE_HEADER if x_twitter_webhooks_signature
-            else SIGNATURE_HEADER_LEGACY if x_signature_256
+            SIGNATURE_HEADER
+            if x_twitter_webhooks_signature
+            else SIGNATURE_HEADER_LEGACY
+            if x_signature_256
             else None
         )
 
@@ -176,16 +185,20 @@ def create_app() -> FastAPI:
         if consumer_secret and sig_header:
             sig_valid = verify_signature(body, sig_header, consumer_secret)
             if not sig_valid:
-                _log({
-                    "received_at": datetime.now(timezone.utc).isoformat(),
-                    "event_type": "signature_error",
-                    "signature_valid": False,
-                    "payload": {
-                        "received_signature": sig_header,
-                        "signature_header_used": sig_source,
-                        "body_preview": body[:200].decode("utf-8", errors="replace"),
-                    },
-                })
+                _log(
+                    {
+                        "received_at": datetime.now(timezone.utc).isoformat(),
+                        "event_type": "signature_error",
+                        "signature_valid": False,
+                        "payload": {
+                            "received_signature": sig_header,
+                            "signature_header_used": sig_source,
+                            "body_preview": body[:200].decode(
+                                "utf-8", errors="replace"
+                            ),
+                        },
+                    }
+                )
                 raise HTTPException(status_code=403, detail="Invalid signature")
 
         try:
@@ -197,14 +210,16 @@ def create_app() -> FastAPI:
         # and flat demo fixtures {event_type, ...}
         event_type, payload = _normalize_xaa_event(raw)
 
-        _log({
-            "received_at": datetime.now(timezone.utc).isoformat(),
-            "event_type": event_type,
-            "signature_valid": sig_valid,
-            "signature_header_used": sig_source,
-            "payload": payload,
-            "raw": raw,
-        })
+        _log(
+            {
+                "received_at": datetime.now(timezone.utc).isoformat(),
+                "event_type": event_type,
+                "signature_valid": sig_valid,
+                "signature_header_used": sig_source,
+                "payload": payload,
+                "raw": raw,
+            }
+        )
         return {"status": "ok", "event_type": event_type}
 
     # ── API: events ───────────────────────────────────────────────────────────
@@ -223,7 +238,9 @@ def create_app() -> FastAPI:
     @app.get("/api/events/export", summary="Export Events as JSONL", tags=["api"])
     async def export_events(
         limit: int = Query(200, le=200),
-        scrub_pii: bool = Query(True, description="Replace real user IDs with FAKE_USER_xxx"),
+        scrub_pii: bool = Query(
+            True, description="Replace real user IDs with FAKE_USER_xxx"
+        ),
         skip_demo: bool = Query(True, description="Exclude injected demo events"),
     ):
         """Export recent events as newline-delimited JSON (JSONL).
@@ -242,12 +259,25 @@ def create_app() -> FastAPI:
         recorder = EventRecorder(scrub_pii=scrub_pii)
         lines = []
         for e in events:
+            event_type = e.get("event_type", "unknown")
+            raw = e.get("raw")  # original envelope if received via /webhook
             payload = e.get("payload", {})
-            scrubbed = recorder.record(payload)
+
+            # Build canonical export envelope that preserves event_type
+            # and is replayable by 'playground replay run'
+            if raw and "data" in raw:
+                # Official XAA envelope — export as-is (scrubbed)
+                export_obj = recorder.record(raw)
+            else:
+                # Demo/flat fixture — wrap in minimal envelope
+                export_obj = recorder.record(
+                    {"event_type": event_type, "payload": payload}
+                )
+
             # Strip internal recorder metadata for clean export
-            scrubbed.pop("_recorded_at", None)
-            scrubbed.pop("_seq", None)
-            lines.append(json.dumps(scrubbed))
+            export_obj.pop("_recorded_at", None)
+            export_obj.pop("_seq", None)
+            lines.append(json.dumps(export_obj))
 
         content = "\n".join(lines) + ("\n" if lines else "")
         return PlainTextResponse(
@@ -275,7 +305,9 @@ def create_app() -> FastAPI:
 
     # ── API: simulate event ───────────────────────────────────────────────────
 
-    @app.post("/api/simulate/{event_type}", summary="Inject Simulated Event", tags=["api"])
+    @app.post(
+        "/api/simulate/{event_type}", summary="Inject Simulated Event", tags=["api"]
+    )
     async def simulate_event(
         event_type: str,
         body: dict[str, Any] = Body(default_factory=dict),
@@ -295,13 +327,15 @@ def create_app() -> FastAPI:
                 detail=f"Unknown event type: {event_type}. Valid: {list(type_map.keys())}",
             )
         event = EventSimulator().generate(et, **body)
-        _log({
-            "received_at": datetime.now(timezone.utc).isoformat(),
-            "event_type": event_type,
-            "signature_valid": None,
-            "simulated": True,
-            "payload": event,
-        })
+        _log(
+            {
+                "received_at": datetime.now(timezone.utc).isoformat(),
+                "event_type": event_type,
+                "signature_valid": None,
+                "simulated": True,
+                "payload": event,
+            }
+        )
         return {"status": "injected", "event": event}
 
     # ── API: repro packs ──────────────────────────────────────────────────────
@@ -310,12 +344,14 @@ def create_app() -> FastAPI:
     async def repro_list():
         """List all available repro packs."""
         from playground.repro.registry import list_packs
+
         return {"packs": list_packs()}
 
     @app.get("/api/repro/run/{pack_id}", summary="Run Repro Pack", tags=["repro"])
     async def repro_run(pack_id: str, verbose: bool = Query(False)):
         """Run a repro pack by ID and return results."""
         from playground.repro.registry import run_pack
+
         try:
             return run_pack(pack_id, verbose=verbose)
         except ValueError as e:
@@ -324,13 +360,16 @@ def create_app() -> FastAPI:
     @app.get("/api/repro/check/{pack_id}", summary="Run Repro Checker", tags=["repro"])
     async def repro_check(
         pack_id: str,
-        webhook_url: str | None = Query(None, description="Your webhook URL to validate"),
+        webhook_url: str | None = Query(
+            None, description="Your webhook URL to validate"
+        ),
     ):
         """Run the semi-automatic environment checker for a repro pack.
 
         Currently supported: chat-webhook-not-received
         """
         from playground.repro.registry import check_pack
+
         try:
             kwargs = {}
             if webhook_url:

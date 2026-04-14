@@ -45,11 +45,7 @@ class TestEventRecorder:
 
     def test_pii_scrubbing_participant_ids_list(self):
         recorder = EventRecorder(scrub_pii=True)
-        event = {
-            "direct_message_events": [
-                {"participant_ids": ["111", "222"]}
-            ]
-        }
+        event = {"direct_message_events": [{"participant_ids": ["111", "222"]}]}
         recorded = recorder.record(event)
         ids = recorded["direct_message_events"][0]["participant_ids"]
         assert isinstance(ids, list)

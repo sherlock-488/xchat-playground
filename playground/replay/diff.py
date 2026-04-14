@@ -53,14 +53,16 @@ async def diff_two_handlers(
                     lineterm="",
                 )
             )
-        results.append({
-            "event_id": f"event_{i}",
-            "event_type": b["event_type"],
-            "baseline_response": b,
-            "candidate_response": c,
-            "identical": identical,
-            "diff": diff,
-        })
+        results.append(
+            {
+                "event_id": f"event_{i}",
+                "event_type": b["event_type"],
+                "baseline_response": b,
+                "candidate_response": c,
+                "identical": identical,
+                "diff": diff,
+            }
+        )
     return results
 
 

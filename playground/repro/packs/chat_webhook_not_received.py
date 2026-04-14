@@ -32,71 +32,79 @@ class ChatWebhookNotReceivedPack:
         steps = []
 
         # Step 1: Check CRC
-        steps.append({
-            "step": 1,
-            "name": "CRC Challenge",
-            "description": "X sends GET /webhook?crc_token=xxx before delivering events.",
-            "what_goes_wrong": (
-                "If your endpoint returns anything other than "
-                '{"response_token": "sha256=<base64_hmac>"}, '
-                "X marks it as unverified and stops delivering events."
-            ),
-            "how_to_debug": (
-                "Run: playground webhook crc <token> --consumer-secret <secret>\n"
-                "Then compare the output to what your handler returns."
-            ),
-            "simulation": self._simulate_crc_failure(),
-        })
+        steps.append(
+            {
+                "step": 1,
+                "name": "CRC Challenge",
+                "description": "X sends GET /webhook?crc_token=xxx before delivering events.",
+                "what_goes_wrong": (
+                    "If your endpoint returns anything other than "
+                    '{"response_token": "sha256=<base64_hmac>"}, '
+                    "X marks it as unverified and stops delivering events."
+                ),
+                "how_to_debug": (
+                    "Run: playground webhook crc <token> --consumer-secret <secret>\n"
+                    "Then compare the output to what your handler returns."
+                ),
+                "simulation": self._simulate_crc_failure(),
+            }
+        )
 
         # Step 2: Public URL
-        steps.append({
-            "step": 2,
-            "name": "Public URL Required",
-            "description": "X cannot reach http://localhost or http://127.0.0.1.",
-            "what_goes_wrong": (
-                "Your webhook must be at a publicly routable HTTPS URL. "
-                "Localhost endpoints will silently fail registration."
-            ),
-            "how_to_debug": (
-                "Use a tunnel: npx cloudflared tunnel --url http://localhost:7474\n"
-                "Or: ngrok http 7474"
-            ),
-            "simulation": None,
-        })
+        steps.append(
+            {
+                "step": 2,
+                "name": "Public URL Required",
+                "description": "X cannot reach http://localhost or http://127.0.0.1.",
+                "what_goes_wrong": (
+                    "Your webhook must be at a publicly routable HTTPS URL. "
+                    "Localhost endpoints will silently fail registration."
+                ),
+                "how_to_debug": (
+                    "Use a tunnel: npx cloudflared tunnel --url http://localhost:7474\n"
+                    "Or: ngrok http 7474"
+                ),
+                "simulation": None,
+            }
+        )
 
         # Step 3: Consumer secret mismatch
-        steps.append({
-            "step": 3,
-            "name": "Consumer Secret Mismatch",
-            "description": "Signature validation fails if secrets don't match.",
-            "what_goes_wrong": (
-                "If CONSUMER_SECRET in your handler differs from the one "
-                "used to register the webhook, all incoming events will "
-                "fail signature validation and return 403."
-            ),
-            "how_to_debug": (
-                "Run: playground webhook verify '<payload>' '<X-Signature-256 value>'\n"
-                "to check if your secret matches."
-            ),
-            "simulation": self._simulate_secret_mismatch(),
-        })
+        steps.append(
+            {
+                "step": 3,
+                "name": "Consumer Secret Mismatch",
+                "description": "Signature validation fails if secrets don't match.",
+                "what_goes_wrong": (
+                    "If CONSUMER_SECRET in your handler differs from the one "
+                    "used to register the webhook, all incoming events will "
+                    "fail signature validation and return 403."
+                ),
+                "how_to_debug": (
+                    "Run: playground webhook verify '<payload>' '<X-Signature-256 value>'\n"
+                    "to check if your secret matches."
+                ),
+                "simulation": self._simulate_secret_mismatch(),
+            }
+        )
 
         # Step 4: Subscription missing
-        steps.append({
-            "step": 4,
-            "name": "Subscription Not Created",
-            "description": "Webhook registered ≠ subscription created.",
-            "what_goes_wrong": (
-                "Registering a webhook URL is separate from subscribing a user "
-                "to events. You must call POST /2/activity/subscriptions "
-                "with the correct event types after webhook registration."
-            ),
-            "how_to_debug": (
-                "Check: GET /2/webhooks to see registered webhooks.\n"
-                "Check: GET /2/activity/subscriptions to see active subscriptions."
-            ),
-            "simulation": None,
-        })
+        steps.append(
+            {
+                "step": 4,
+                "name": "Subscription Not Created",
+                "description": "Webhook registered ≠ subscription created.",
+                "what_goes_wrong": (
+                    "Registering a webhook URL is separate from subscribing a user "
+                    "to events. You must call POST /2/activity/subscriptions "
+                    "with the correct event types after webhook registration."
+                ),
+                "how_to_debug": (
+                    "Check: GET /2/webhooks to see registered webhooks.\n"
+                    "Check: GET /2/activity/subscriptions to see active subscriptions."
+                ),
+                "simulation": None,
+            }
+        )
 
         return {
             "reproduced": True,
@@ -127,43 +135,54 @@ class ChatWebhookNotReceivedPack:
         # Check 1: CONSUMER_SECRET is set
         secret = os.getenv("CONSUMER_SECRET", "")
         if secret:
-            results.append({
-                "check": "CONSUMER_SECRET set",
-                "status": "pass",
-                "detail": f"Secret is set ({len(secret)} chars)",
-            })
+            results.append(
+                {
+                    "check": "CONSUMER_SECRET set",
+                    "status": "pass",
+                    "detail": f"Secret is set ({len(secret)} chars)",
+                }
+            )
         else:
-            results.append({
-                "check": "CONSUMER_SECRET set",
-                "status": "fail",
-                "detail": "CONSUMER_SECRET is empty. Set it in .env or environment.",
-                "fix": "Copy .env.example to .env and fill in your Consumer Secret",
-            })
+            results.append(
+                {
+                    "check": "CONSUMER_SECRET set",
+                    "status": "fail",
+                    "detail": "CONSUMER_SECRET is empty. Set it in .env or environment.",
+                    "fix": "Copy .env.example to .env and fill in your Consumer Secret",
+                }
+            )
 
         # Check 2: CRC response format (simulate locally)
         if secret:
             from playground.webhook.crc import compute_crc_response
+
             test_token = "check_token_12345"
             resp = compute_crc_response(test_token, secret)
             rt = resp.get("response_token", "")
             if rt.startswith("sha256=") and len(rt) > 10:
-                results.append({
-                    "check": "CRC response format",
-                    "status": "pass",
-                    "detail": "compute_crc_response() returns valid sha256= token",
-                })
+                results.append(
+                    {
+                        "check": "CRC response format",
+                        "status": "pass",
+                        "detail": "compute_crc_response() returns valid sha256= token",
+                    }
+                )
             else:
-                results.append({
-                    "check": "CRC response format",
-                    "status": "fail",
-                    "detail": f"Unexpected CRC response: {rt!r}",
-                })
+                results.append(
+                    {
+                        "check": "CRC response format",
+                        "status": "fail",
+                        "detail": f"Unexpected CRC response: {rt!r}",
+                    }
+                )
         else:
-            results.append({
-                "check": "CRC response format",
-                "status": "skip",
-                "detail": "Skipped — CONSUMER_SECRET not set",
-            })
+            results.append(
+                {
+                    "check": "CRC response format",
+                    "status": "skip",
+                    "detail": "Skipped — CONSUMER_SECRET not set",
+                }
+            )
 
         # Check 3: Webhook URL not localhost
         if webhook_url:
@@ -173,47 +192,62 @@ class ChatWebhookNotReceivedPack:
             is_https = parsed.scheme == "https"
 
             if is_local:
-                results.append({
-                    "check": "Webhook URL not localhost",
-                    "status": "fail",
-                    "detail": f"URL {webhook_url!r} is a localhost address — X cannot reach it.",
-                    "fix": "Use a tunnel: npx cloudflared tunnel --url http://localhost:7474",
-                })
+                results.append(
+                    {
+                        "check": "Webhook URL not localhost",
+                        "status": "fail",
+                        "detail": f"URL {webhook_url!r} is a localhost address — X cannot reach it.",
+                        "fix": "Use a tunnel: npx cloudflared tunnel --url http://localhost:7474",
+                    }
+                )
             else:
-                results.append({
-                    "check": "Webhook URL not localhost",
-                    "status": "pass",
-                    "detail": f"URL host {host!r} is not localhost",
-                })
+                results.append(
+                    {
+                        "check": "Webhook URL not localhost",
+                        "status": "pass",
+                        "detail": f"URL host {host!r} is not localhost",
+                    }
+                )
 
             if not is_https and not is_local:
-                results.append({
-                    "check": "Webhook URL uses HTTPS",
-                    "status": "warn",
-                    "detail": "X requires HTTPS for production webhook URLs.",
-                    "fix": "Ensure your tunnel or server provides TLS",
-                })
+                results.append(
+                    {
+                        "check": "Webhook URL uses HTTPS",
+                        "status": "warn",
+                        "detail": "X requires HTTPS for production webhook URLs.",
+                        "fix": "Ensure your tunnel or server provides TLS",
+                    }
+                )
             elif is_https:
-                results.append({
-                    "check": "Webhook URL uses HTTPS",
-                    "status": "pass",
-                    "detail": "URL uses HTTPS",
-                })
+                results.append(
+                    {
+                        "check": "Webhook URL uses HTTPS",
+                        "status": "pass",
+                        "detail": "URL uses HTTPS",
+                    }
+                )
         else:
-            results.append({
-                "check": "Webhook URL not localhost",
-                "status": "skip",
-                "detail": "Pass webhook_url= to check URL format",
-            })
+            results.append(
+                {
+                    "check": "Webhook URL not localhost",
+                    "status": "skip",
+                    "detail": "Pass webhook_url= to check URL format",
+                }
+            )
 
         # Check 4: .env file exists
         from pathlib import Path
+
         env_exists = Path(".env").exists()
-        results.append({
-            "check": ".env file present",
-            "status": "pass" if env_exists else "warn",
-            "detail": ".env found" if env_exists else ".env missing — using environment variables only",
-        })
+        results.append(
+            {
+                "check": ".env file present",
+                "status": "pass" if env_exists else "warn",
+                "detail": ".env found"
+                if env_exists
+                else ".env missing — using environment variables only",
+            }
+        )
 
         # Summary
         statuses = [r["status"] for r in results]
@@ -225,8 +259,8 @@ class ChatWebhookNotReceivedPack:
             "overall": "pass" if all_pass else ("fail" if has_fail else "warn"),
             "summary": (
                 "All checks passed — your local config looks correct."
-                if all_pass else
-                "Some checks failed — see 'checks' for details and fixes."
+                if all_pass
+                else "Some checks failed — see 'checks' for details and fixes."
             ),
         }
 
@@ -245,6 +279,7 @@ class ChatWebhookNotReceivedPack:
 
     def _simulate_secret_mismatch(self) -> dict:
         from playground.webhook.signature import generate_signature
+
         payload = b'{"event_type":"chat.received"}'
         correct_sig = generate_signature(payload, "correct_secret")
         wrong_sig = generate_signature(payload, "wrong_secret")
