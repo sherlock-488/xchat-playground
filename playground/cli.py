@@ -8,10 +8,14 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.table import Table
+
+# Load .env as early as possible so all commands see env vars
+load_dotenv()
 
 app = typer.Typer(
     name="playground",
@@ -241,6 +245,10 @@ def webhook_verify(
 ):
     """Verify a webhook payload signature."""
     from playground.webhook.signature import verify_signature
+
+    if not consumer_secret:
+        console.print("[red]Error:[/] CONSUMER_SECRET not set. Pass --consumer-secret or set in .env")
+        raise typer.Exit(1)
 
     valid = verify_signature(payload.encode(), signature, consumer_secret)
     if valid:

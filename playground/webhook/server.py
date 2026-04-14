@@ -1,13 +1,18 @@
 """Local webhook server for XChat bot development.
 
 Provides:
-  GET  /webhook?crc_token=xxx  → CRC challenge response
-  POST /webhook                → Receive & log XChat events
-  GET  /ui                     → Browser-based debug UI
-  GET  /api/events             → Recent events (JSON)
-  GET  /api/signature/explain  → Step-by-step signature breakdown
-  GET  /health                 → Health check
-  GET  /docs                   → OpenAPI docs (auto-generated)
+  GET  /webhook?crc_token=xxx       → CRC challenge response
+  POST /webhook                     → Receive & log XChat events
+  GET  /ui                          → Browser-based debug UI
+  GET  /api/events                  → Recent events (JSON)
+  DELETE /api/events                → Clear event log
+  POST /api/simulate/{event_type}   → Inject simulated event
+  POST /api/signature/explain       → Step-by-step signature breakdown
+  POST /api/webhook/crc             → Compute CRC with custom secret (for UI)
+  GET  /api/repro/list              → List repro packs
+  GET  /api/repro/run/{pack_id}     → Run a repro pack
+  GET  /health                      → Health check
+  GET  /docs                        → OpenAPI docs (auto-generated)
 """
 
 from __future__ import annotations
@@ -16,24 +21,34 @@ import json
 import os
 from collections import deque
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
-from fastapi.responses import HTMLResponse, JSONResponse
+from dotenv import load_dotenv
+from fastapi import Body, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from playground.webhook.crc import compute_crc_response
 from playground.webhook.signature import explain_signature, verify_signature
 
-# In-memory event log (last 200 events)
-_event_log: deque[dict] = deque(maxlen=200)
+# Load .env at import time so env vars are available immediately
+load_dotenv()
+
+# Web directory (for static file serving)
+_WEB_DIR = Path(__file__).parent.parent.parent / "web"
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
 
 class SignatureExplainRequest(BaseModel):
     payload: str
+    consumer_secret: str
+
+
+class CRCRequest(BaseModel):
+    crc_token: str
     consumer_secret: str
 
 
@@ -48,17 +63,44 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
+    # Re-read env on each factory call so tests and reloads pick up changes
     consumer_secret = os.getenv("CONSUMER_SECRET", "")
 
-    # ── CRC challenge ─────────────────────────────────────────────────────────
+    # Per-app event log (avoids global state leaking across test instances)
+    event_log: deque[dict] = deque(maxlen=200)
+
+    def _log(entry: dict) -> None:
+        event_log.append(entry)
+
+    def _inject_demo_events() -> None:
+        """Inject a couple of demo events so the UI is never blank on first open."""
+        from playground.simulator.events import EventSimulator, EventType
+        sim = EventSimulator()
+        now = datetime.now(timezone.utc).isoformat()
+        for et, label in [
+            (EventType.CHAT_RECEIVED, "chat.received"),
+            (EventType.CHAT_SENT, "chat.sent"),
+        ]:
+            _log({
+                "received_at": now,
+                "event_type": label,
+                "signature_valid": None,
+                "simulated": True,
+                "demo": True,
+                "payload": sim.generate(et),
+            })
+
+    _inject_demo_events()
+
+    # Mount /web so index.html can load app.js
+    if _WEB_DIR.exists():
+        app.mount("/web", StaticFiles(directory=_WEB_DIR), name="web")
+
+    # ── CRC challenge (X calls this to verify your endpoint) ──────────────────
 
     @app.get("/webhook", summary="CRC Challenge", tags=["webhook"])
     async def crc_challenge(crc_token: str = Query(..., description="Token from X")):
-        """Respond to X's CRC challenge for webhook registration.
-
-        X sends this GET request to verify your endpoint before
-        registering it. Returns the HMAC-SHA256 of the token.
-        """
+        """Respond to X's CRC challenge for webhook registration."""
         if not consumer_secret:
             raise HTTPException(
                 status_code=500,
@@ -73,22 +115,21 @@ def create_app() -> FastAPI:
         request: Request,
         x_signature_256: Optional[str] = Header(None, alias="X-Signature-256"),
     ):
-        """Receive an XChat Activity API event.
-
-        Validates the signature if CONSUMER_SECRET is set, then logs
-        the event for inspection in the UI.
-        """
+        """Receive an XChat Activity API event, validate signature, log it."""
         body = await request.body()
 
-        # Signature validation (skip if no secret configured)
         sig_valid = None
         if consumer_secret and x_signature_256:
             sig_valid = verify_signature(body, x_signature_256, consumer_secret)
             if not sig_valid:
-                _log_event({
-                    "type": "signature_error",
-                    "received": x_signature_256,
-                    "body_preview": body[:200].decode("utf-8", errors="replace"),
+                _log({
+                    "received_at": datetime.now(timezone.utc).isoformat(),
+                    "event_type": "signature_error",
+                    "signature_valid": False,
+                    "payload": {
+                        "received_signature": x_signature_256,
+                        "body_preview": body[:200].decode("utf-8", errors="replace"),
+                    },
                 })
                 raise HTTPException(status_code=403, detail="Invalid signature")
 
@@ -98,49 +139,52 @@ def create_app() -> FastAPI:
             payload = {"raw": body.decode("utf-8", errors="replace")}
 
         event_type = payload.get("event_type", "unknown")
-        entry = {
+        _log({
             "received_at": datetime.now(timezone.utc).isoformat(),
             "event_type": event_type,
             "signature_valid": sig_valid,
             "payload": payload,
-        }
-        _log_event(entry)
-
+        })
         return {"status": "ok", "event_type": event_type}
 
-    # ── API: recent events ────────────────────────────────────────────────────
+    # ── API: events ───────────────────────────────────────────────────────────
 
     @app.get("/api/events", summary="List Recent Events", tags=["api"])
     async def list_events(limit: int = Query(50, le=200)):
-        """Return the last N received events."""
-        events = list(_event_log)[-limit:]
-        return {"events": events, "total": len(_event_log)}
+        events = list(event_log)[-limit:]
+        return {"events": events, "total": len(event_log)}
 
     @app.delete("/api/events", summary="Clear Event Log", tags=["api"])
     async def clear_events():
-        """Clear the in-memory event log."""
-        _event_log.clear()
+        event_log.clear()
+        _inject_demo_events()
         return {"status": "cleared"}
 
     # ── API: signature explain ────────────────────────────────────────────────
 
     @app.post("/api/signature/explain", summary="Explain Signature", tags=["api"])
     async def signature_explain(req: SignatureExplainRequest):
-        """Step-by-step HMAC-SHA256 signature breakdown.
+        """Step-by-step HMAC-SHA256 breakdown — debug why your sig doesn't match."""
+        return explain_signature(req.payload.encode(), req.consumer_secret)
 
-        Useful for debugging why your signature doesn't match X's.
+    # ── API: CRC compute (for UI — accepts secret in request body) ────────────
+
+    @app.post("/api/webhook/crc", summary="Compute CRC Response", tags=["api"])
+    async def compute_crc(req: CRCRequest):
+        """Compute CRC challenge response with a custom secret.
+
+        Used by the Web UI so users can test CRC without restarting the server.
         """
-        result = explain_signature(req.payload.encode(), req.consumer_secret)
-        return result
+        return compute_crc_response(req.crc_token, req.consumer_secret)
 
     # ── API: simulate event ───────────────────────────────────────────────────
 
     @app.post("/api/simulate/{event_type}", summary="Inject Simulated Event", tags=["api"])
-    async def simulate_event(event_type: str, body: dict[str, Any] = {}):
-        """Generate and inject a simulated event into the event log.
-
-        Useful for testing your handler without a live X connection.
-        """
+    async def simulate_event(
+        event_type: str,
+        body: dict[str, Any] = Body(default_factory=dict),
+    ):
+        """Generate and inject a simulated event into the event log."""
         from playground.simulator.events import EventSimulator, EventType
 
         type_map = {
@@ -152,20 +196,34 @@ def create_app() -> FastAPI:
         if not et:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unknown event type: {event_type}. "
-                       f"Valid: {list(type_map.keys())}",
+                detail=f"Unknown event type: {event_type}. Valid: {list(type_map.keys())}",
             )
-        sim = EventSimulator()
-        event = sim.generate(et, **body)
-        entry = {
+        event = EventSimulator().generate(et, **body)
+        _log({
             "received_at": datetime.now(timezone.utc).isoformat(),
             "event_type": event_type,
             "signature_valid": None,
             "simulated": True,
             "payload": event,
-        }
-        _log_event(entry)
+        })
         return {"status": "injected", "event": event}
+
+    # ── API: repro packs ──────────────────────────────────────────────────────
+
+    @app.get("/api/repro/list", summary="List Repro Packs", tags=["repro"])
+    async def repro_list():
+        """List all available repro packs."""
+        from playground.repro.registry import list_packs
+        return {"packs": list_packs()}
+
+    @app.get("/api/repro/run/{pack_id}", summary="Run Repro Pack", tags=["repro"])
+    async def repro_run(pack_id: str, verbose: bool = Query(False)):
+        """Run a repro pack by ID and return results."""
+        from playground.repro.registry import run_pack
+        try:
+            return run_pack(pack_id, verbose=verbose)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
 
     # ── Health check ──────────────────────────────────────────────────────────
 
@@ -175,27 +233,21 @@ def create_app() -> FastAPI:
             "status": "ok",
             "version": "0.1.0",
             "consumer_secret_set": bool(consumer_secret),
-            "event_count": len(_event_log),
+            "event_count": len(event_log),
+            "dotenv_loaded": Path(".env").exists(),
         }
 
     # ── Web UI ────────────────────────────────────────────────────────────────
 
     @app.get("/ui", response_class=HTMLResponse, summary="Debug UI", tags=["ui"])
     async def ui():
-        """Browser-based debug UI for inspecting events and testing CRC/signature."""
-        from pathlib import Path
-        ui_path = Path(__file__).parent.parent.parent / "web" / "index.html"
+        """Browser-based debug UI."""
+        ui_path = _WEB_DIR / "index.html"
         if ui_path.exists():
             return HTMLResponse(ui_path.read_text())
         return HTMLResponse(_INLINE_UI)
 
     return app
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _log_event(entry: dict) -> None:
-    _event_log.append(entry)
 
 
 # ── Inline fallback UI (if web/index.html not present) ────────────────────────

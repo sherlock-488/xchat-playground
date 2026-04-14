@@ -48,7 +48,7 @@ uv run playground serve
 # → open http://localhost:7474/ui
 ```
 
-That's it. The Web UI starts with simulated events injected automatically.
+That's it. The Web UI opens with demo events pre-loaded so you're never staring at a blank screen.
 No X developer account required for local testing.
 
 ---
@@ -165,7 +165,7 @@ xchat-playground/
 
 ## Status
 
-> ⚠️ XChat launched April 17, 2026. This playground tracks the official
+> ⚠️ XChat is launching April 17, 2026. This playground tracks the official
 > [xchat-bot-python](https://github.com/xdevplatform/xchat-bot-python) template
 > and [X Activity API](https://developer.x.com/en/docs/x-api).
 > The `crypto real` mode will be updated when `chat-xdk` reaches stable release.

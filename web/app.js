@@ -183,22 +183,26 @@ async function computeCRC() {
     return;
   }
 
-  const r = await fetch(`/webhook?crc_token=${encodeURIComponent(token)}`, {
-    headers: { "X-Consumer-Secret": secret },
-  });
-
   const el = document.getElementById("crc-result");
   el.style.display = "block";
 
+  // POST to /api/webhook/crc — accepts secret in request body (not env var)
+  const r = await fetch("/api/webhook/crc", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ crc_token: token, consumer_secret: secret }),
+  });
+
   if (r.ok) {
     const data = await r.json();
-    el.textContent = `HTTP ${r.status}\n\n${JSON.stringify(data, null, 2)}\n\n` +
+    el.textContent =
+      `HTTP ${r.status}\n\n` +
+      `${JSON.stringify(data, null, 2)}\n\n` +
       `Return this JSON body to X when it sends:\n` +
       `GET /your-webhook?crc_token=${token}`;
   } else {
     const text = await r.text();
-    el.textContent = `HTTP ${r.status}\n\n${text}\n\n` +
-      `Make sure CONSUMER_SECRET is set in your .env file.`;
+    el.textContent = `HTTP ${r.status}\n\n${text}`;
   }
 }
 
