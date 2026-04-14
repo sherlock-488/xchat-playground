@@ -1,13 +1,25 @@
 # xchat-playground 🧪
 
-> **Local simulator & replay lab for XChat bots.**
-> Debug webhooks, replay `chat.received` events, and test E2EE decrypt flows —
-> all offline, zero API credits burned.
+> **Webhook-first local simulator & replay lab for X Activity API / XChat bots.**
+> Debug CRC, signatures, and E2EE migration issues — all offline, zero API credits burned.
 
 [![CI](https://github.com/sherlock-488/xchat-playground/actions/workflows/ci.yml/badge.svg)](https://github.com/sherlock-488/xchat-playground/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![X Developer Forum](https://img.shields.io/badge/X%20Dev-Forum-1d9bf0)](https://devcommunity.x.com)
+
+**Not an official X / Anthropic SDK.** This is an independent developer tool — a local harness for testing, replaying, and debugging X Activity API webhooks before touching production.
+
+---
+
+## Who this is for
+
+- Developers building X Activity API webhooks or XChat bots
+- Teams migrating from legacy DM / AAA to XAA + E2EE
+- Anyone debugging CRC failures, signature mismatches, or encrypted payload issues
+- Developers who want to replay and diff payloads as X's event schema evolves
+
+**Not for:** end users expecting a production-ready bot runtime or complete official SDK.
 
 ---
 
@@ -20,11 +32,23 @@ Building on XChat means dealing with:
 - `dm_events` going quiet after E2EE is enabled on a conversation
 - Event format changes that break your handler at 2am
 
-This playground gives you a **local harness** to reproduce, replay, and diff all of the above **before** touching production.
+xchat-playground gives you a **local harness** to reproduce, replay, and diff all of the above **before** touching production.
 
-> **Delivery modes:** X Activity API supports both **webhook** (HTTP POST) and **persistent Activity Stream** (long-lived connection). This playground focuses on the webhook delivery path. The official [xchat-bot-python](https://github.com/xdevplatform/xchat-bot-python) template uses Activity Stream. Both are valid — choose based on your architecture.
->
-> **Schema note:** Event field-level schema (e.g. `data.payload.encoded_event`) is inferred from the official bot source. X has not yet published a complete XChat payload reference. This repo tracks the official bot as the authoritative contract until docs.x.com catches up.
+---
+
+## Scope and honest limits
+
+| Area | Status |
+|------|--------|
+| Webhook CRC + signature validation | ✅ Full support |
+| `chat.received` official observed schema | ✅ Tracks [xchat-bot-python](https://github.com/xdevplatform/xchat-bot-python) |
+| `chat.sent` / `chat.conversation_join` official schema | ⚠️ Demo/teaching schema only — payload shape not yet confirmed |
+| Real E2EE decryption (`crypto real`) | ⚠️ Placeholder — awaits `chat-xdk` stable release |
+| Activity Stream delivery | ℹ️ Not in scope — this tool focuses on the webhook path |
+
+> **Schema note:** `chat.received` field names (`data.payload.encoded_event`, etc.) are inferred from the official [xchat-bot-python](https://github.com/xdevplatform/xchat-bot-python) source. X has not yet published a complete XChat payload reference. Other event types use demo/teaching field names until confirmed.
+
+> **Delivery note:** X Activity API supports both **webhook** (HTTP POST) and **Activity Stream** (long-lived connection). xchat-playground focuses on the webhook path. The official bot template uses Activity Stream. Both are valid — choose based on your architecture.
 
 ---
 
@@ -167,12 +191,17 @@ xchat-playground/
 
 ---
 
-## Status
+## Status: alpha
 
-> ⚠️ XChat is launching April 17, 2026. This playground tracks the official
-> [xchat-bot-python](https://github.com/xdevplatform/xchat-bot-python) template
-> and [X Activity API](https://developer.x.com/en/docs/x-api).
-> The `crypto real` mode will be updated when `chat-xdk` reaches stable release.
+This is a **pre-1.0 alpha** released around XChat's April 2026 launch.
+
+- CRC, signature, webhook harness, replay, repro packs: stable and tested
+- `chat.received` official observed schema: tracks xchat-bot-python as the authoritative contract
+- `chat.sent` / `chat.conversation_join` official schema: not yet modelled — use `demo` schema
+- `crypto real`: placeholder — will be updated when `chat-xdk` reaches stable release
+- X's event schema is actively evolving; this tool is designed to help you catch schema drift
+
+If you find a field mismatch between this tool and what X actually sends, [open an issue](../../issues/new?template=bug_report.md) — that's exactly the kind of feedback that makes this useful.
 
 ---
 
@@ -182,6 +211,8 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Found a new XChat API bug? [Open a Repro Pack issue](../../issues/new?template=repro_pack.md) —
 if it's reproducible, we'll add it as a preset.
+
+> **Policy note for bot builders:** If you use this playground to build automated bots, note that X's Developer Guidelines require automated accounts to carry an Automated label, disclose the operator in bio, and provide opt-out. AI-generated replies require additional approval. This tool is a testing harness — what you build with it is your responsibility.
 
 ---
 
