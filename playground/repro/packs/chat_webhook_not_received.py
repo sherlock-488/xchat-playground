@@ -16,6 +16,9 @@ Forum thread: https://devcommunity.x.com (search "chat webhook not received")
 
 from __future__ import annotations
 
+import os
+import urllib.parse
+
 
 class ChatWebhookNotReceivedPack:
     title = "chat.received webhook not delivered"
@@ -109,6 +112,122 @@ class ChatWebhookNotReceivedPack:
                 "4. Explicitly create subscription after webhook registration"
             ),
             "steps": steps if verbose else [s["name"] for s in steps],
+        }
+
+    def check(self, webhook_url: str | None = None) -> dict:
+        """Semi-automatic environment checker.
+
+        Runs local checks that don't require network access to X's API.
+        Pass webhook_url to also validate the URL format.
+
+        Returns a checklist dict with pass/fail/warn for each item.
+        """
+        results = []
+
+        # Check 1: CONSUMER_SECRET is set
+        secret = os.getenv("CONSUMER_SECRET", "")
+        if secret:
+            results.append({
+                "check": "CONSUMER_SECRET set",
+                "status": "pass",
+                "detail": f"Secret is set ({len(secret)} chars)",
+            })
+        else:
+            results.append({
+                "check": "CONSUMER_SECRET set",
+                "status": "fail",
+                "detail": "CONSUMER_SECRET is empty. Set it in .env or environment.",
+                "fix": "Copy .env.example to .env and fill in your Consumer Secret",
+            })
+
+        # Check 2: CRC response format (simulate locally)
+        if secret:
+            from playground.webhook.crc import compute_crc_response
+            test_token = "check_token_12345"
+            resp = compute_crc_response(test_token, secret)
+            rt = resp.get("response_token", "")
+            if rt.startswith("sha256=") and len(rt) > 10:
+                results.append({
+                    "check": "CRC response format",
+                    "status": "pass",
+                    "detail": "compute_crc_response() returns valid sha256= token",
+                })
+            else:
+                results.append({
+                    "check": "CRC response format",
+                    "status": "fail",
+                    "detail": f"Unexpected CRC response: {rt!r}",
+                })
+        else:
+            results.append({
+                "check": "CRC response format",
+                "status": "skip",
+                "detail": "Skipped — CONSUMER_SECRET not set",
+            })
+
+        # Check 3: Webhook URL not localhost
+        if webhook_url:
+            parsed = urllib.parse.urlparse(webhook_url)
+            host = parsed.hostname or ""
+            is_local = host in ("localhost", "127.0.0.1", "0.0.0.0", "::1")
+            is_https = parsed.scheme == "https"
+
+            if is_local:
+                results.append({
+                    "check": "Webhook URL not localhost",
+                    "status": "fail",
+                    "detail": f"URL {webhook_url!r} is a localhost address — X cannot reach it.",
+                    "fix": "Use a tunnel: npx cloudflared tunnel --url http://localhost:7474",
+                })
+            else:
+                results.append({
+                    "check": "Webhook URL not localhost",
+                    "status": "pass",
+                    "detail": f"URL host {host!r} is not localhost",
+                })
+
+            if not is_https and not is_local:
+                results.append({
+                    "check": "Webhook URL uses HTTPS",
+                    "status": "warn",
+                    "detail": "X requires HTTPS for production webhook URLs.",
+                    "fix": "Ensure your tunnel or server provides TLS",
+                })
+            elif is_https:
+                results.append({
+                    "check": "Webhook URL uses HTTPS",
+                    "status": "pass",
+                    "detail": "URL uses HTTPS",
+                })
+        else:
+            results.append({
+                "check": "Webhook URL not localhost",
+                "status": "skip",
+                "detail": "Pass webhook_url= to check URL format",
+            })
+
+        # Check 4: .env file exists
+        from pathlib import Path
+        env_exists = Path(".env").exists()
+        results.append({
+            "check": ".env file present",
+            "status": "pass" if env_exists else "warn",
+            "detail": ".env found" if env_exists else ".env missing — using environment variables only",
+        })
+
+        # Summary
+        statuses = [r["status"] for r in results]
+        all_pass = all(s in ("pass", "skip") for s in statuses)
+        has_fail = "fail" in statuses
+
+        return {
+            "checks": results,
+            "overall": "pass" if all_pass else ("fail" if has_fail else "warn"),
+            "summary": (
+                "All checks passed — your local config looks correct."
+                if all_pass else
+                "Some checks failed — see 'checks' for details and fixes."
+            ),
         }
 
     def _simulate_crc_failure(self) -> dict:

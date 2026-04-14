@@ -47,6 +47,17 @@ def run_pack(pack_id: str, verbose: bool = False) -> dict:
     return pack.run(verbose=verbose)
 
 
+def check_pack(pack_id: str, **kwargs) -> dict:
+    """Run the semi-automatic checker for a repro pack (if it has one).
+
+    Returns a checklist dict, or raises AttributeError if the pack has no checker.
+    """
+    pack = ReproRegistry.get(pack_id)
+    if not hasattr(pack, "check"):
+        raise AttributeError(f"Pack '{pack_id}' does not implement a check() method.")
+    return pack.check(**kwargs)
+
+
 class BaseReproPack:
     """Base class for all repro packs."""
 

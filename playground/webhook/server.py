@@ -163,6 +163,42 @@ def create_app() -> FastAPI:
         _inject_demo_events()
         return {"status": "cleared"}
 
+    @app.get("/api/events/export", summary="Export Events as JSONL", tags=["api"])
+    async def export_events(
+        limit: int = Query(200, le=200),
+        scrub_pii: bool = Query(True, description="Replace real user IDs with FAKE_USER_xxx"),
+        skip_demo: bool = Query(True, description="Exclude injected demo events"),
+    ):
+        """Export recent events as newline-delimited JSON (JSONL).
+
+        Suitable for use with 'playground replay run' or sharing bug reports.
+        PII scrubbing is enabled by default — disable only if you own all the IDs.
+        """
+        from fastapi.responses import PlainTextResponse
+
+        from playground.replay.recorder import EventRecorder
+
+        events = list(event_log)[-limit:]
+        if skip_demo:
+            events = [e for e in events if not e.get("demo")]
+
+        recorder = EventRecorder(scrub_pii=scrub_pii)
+        lines = []
+        for e in events:
+            payload = e.get("payload", {})
+            scrubbed = recorder.record(payload)
+            # Strip internal recorder metadata for clean export
+            scrubbed.pop("_recorded_at", None)
+            scrubbed.pop("_seq", None)
+            lines.append(json.dumps(scrubbed))
+
+        content = "\n".join(lines) + ("\n" if lines else "")
+        return PlainTextResponse(
+            content=content,
+            media_type="application/x-ndjson",
+            headers={"Content-Disposition": "attachment; filename=events.jsonl"},
+        )
+
     # ── API: signature explain ────────────────────────────────────────────────
 
     @app.post("/api/signature/explain", summary="Explain Signature", tags=["api"])
@@ -227,6 +263,26 @@ def create_app() -> FastAPI:
             return run_pack(pack_id, verbose=verbose)
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
+
+    @app.get("/api/repro/check/{pack_id}", summary="Run Repro Checker", tags=["repro"])
+    async def repro_check(
+        pack_id: str,
+        webhook_url: str | None = Query(None, description="Your webhook URL to validate"),
+    ):
+        """Run the semi-automatic environment checker for a repro pack.
+
+        Currently supported: chat-webhook-not-received
+        """
+        from playground.repro.registry import check_pack
+        try:
+            kwargs = {}
+            if webhook_url:
+                kwargs["webhook_url"] = webhook_url
+            return check_pack(pack_id, **kwargs)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        except AttributeError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
     # ── Health check ──────────────────────────────────────────────────────────
 

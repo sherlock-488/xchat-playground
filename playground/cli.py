@@ -304,6 +304,53 @@ def replay_diff(
     asyncio.run(_run())
 
 
+@replay_app.command("export")
+def replay_export(
+    server: str = typer.Option("http://127.0.0.1:7474", help="playground server URL"),
+    output: Path = typer.Option(Path("recordings/export.jsonl"), "--output", "-o"),
+    limit: int = typer.Option(200, help="Max events to export"),
+    no_scrub: bool = typer.Option(False, "--no-scrub", help="Disable PII scrubbing (use with caution)"),
+    include_demo: bool = typer.Option(False, "--include-demo", help="Include injected demo events"),
+):
+    """Export events from the running playground server as a scrubbed JSONL file.
+
+    The exported file can be replayed with: playground replay run <file>
+
+    PII scrubbing is ON by default — real user IDs are replaced with FAKE_USER_xxx.
+    """
+    import httpx
+
+    scrub = not no_scrub
+    skip_demo = not include_demo
+    url = f"{server}/api/events/export?limit={limit}&scrub_pii={str(scrub).lower()}&skip_demo={str(skip_demo).lower()}"
+
+    try:
+        r = httpx.get(url, timeout=10)
+        r.raise_for_status()
+    except httpx.ConnectError as err:
+        console.print(f"[red]Error:[/] Cannot connect to {server}. Is the server running?")
+        console.print("[dim]Start it with: playground serve[/dim]")
+        raise typer.Exit(1) from err
+    except httpx.HTTPStatusError as e:
+        console.print(f"[red]Error:[/] Server returned {e.response.status_code}")
+        raise typer.Exit(1) from e
+
+    content = r.text
+    event_count = len([line for line in content.splitlines() if line.strip()])
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(content)
+
+    console.print(Panel(
+        f"[bold green]✓ Exported {event_count} events[/]\n\n"
+        f"[bold]Output:[/]  {output}\n"
+        f"[bold]Scrubbed:[/] {'yes — real IDs replaced with FAKE_USER_xxx' if scrub else '[yellow]NO — real IDs preserved[/yellow]'}\n\n"
+        "[dim]Replay with: playground replay run {output}[/dim]",
+        title="Replay Export",
+        border_style="green",
+    ))
+
+
 # ── crypto commands ───────────────────────────────────────────────────────────
 
 @crypto_app.command("stub")
@@ -383,6 +430,63 @@ def repro_run(
         ))
     else:
         console.print(f"[green]Could not reproduce[/] — {result.get('reason', 'no details')}")
+
+
+@repro_app.command("check")
+def repro_check(
+    pack_id: str = typer.Argument(..., help="Repro pack ID (from 'playground repro list')"),
+    webhook_url: str = typer.Option(None, "--webhook-url", "-u", help="Your webhook URL to validate"),
+):
+    """Run the semi-automatic environment checker for a repro pack.
+
+    Example: playground repro check chat-webhook-not-received --webhook-url https://yourbot.example.com/webhook
+    """
+    from playground.repro.registry import check_pack
+
+    console.print(f"[bold]Checking environment for:[/] {pack_id}\n")
+    try:
+        kwargs = {}
+        if webhook_url:
+            kwargs["webhook_url"] = webhook_url
+        result = check_pack(pack_id, **kwargs)
+    except AttributeError as e:
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1) from e
+    except ValueError as e:
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1) from e
+
+    table = Table(title=f"Environment Check: {pack_id}", show_header=True, header_style="bold cyan")
+    table.add_column("Check", style="bold")
+    table.add_column("Status")
+    table.add_column("Detail", style="dim")
+
+    for item in result["checks"]:
+        status = item["status"]
+        if status == "pass":
+            status_str = "[green]✓ pass[/]"
+        elif status == "fail":
+            status_str = "[red]✗ fail[/]"
+        elif status == "warn":
+            status_str = "[yellow]⚠ warn[/]"
+        else:
+            status_str = "[dim]– skip[/]"
+
+        detail = item["detail"]
+        if "fix" in item:
+            detail += f"\n  [dim]Fix: {item['fix']}[/dim]"
+        table.add_row(item["check"], status_str, detail)
+
+    console.print(table)
+
+    overall = result["overall"]
+    if overall == "pass":
+        console.print(f"\n[bold green]{result['summary']}[/]")
+    elif overall == "fail":
+        console.print(f"\n[bold red]{result['summary']}[/]")
+        raise typer.Exit(1)
+    else:
+        console.print(f"\n[bold yellow]{result['summary']}[/]")
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
