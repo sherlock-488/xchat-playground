@@ -1,13 +1,11 @@
 """Tests for webhook CRC and signature modules."""
 
-import pytest
 from playground.webhook.crc import compute_crc_response, verify_crc_token
 from playground.webhook.signature import (
+    explain_signature,
     generate_signature,
     verify_signature,
-    explain_signature,
 )
-
 
 SECRET = "test_consumer_secret_abc123"
 WRONG_SECRET = "wrong_secret_xyz"

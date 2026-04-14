@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from playground.repro.packs.chat_webhook_not_received import ChatWebhookNotReceivedPack
 from playground.repro.packs.encrypted_lookup_empty import EncryptedLookupEmptyPack
 from playground.repro.packs.legacy_dm_stops_after_e2ee import LegacyDmStopsAfterE2eePack

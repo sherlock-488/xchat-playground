@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 
 class EventType(str, Enum):
@@ -34,8 +34,8 @@ class EventSimulator:
         *,
         sender_id: str = "111222333",
         recipient_id: str = "444555666",
-        conversation_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        conversation_id: str | None = None,
+        user_id: str | None = None,
         encrypted: bool = True,
         message_text: str = "Hello from xchat-playground!",
         **kwargs: Any,

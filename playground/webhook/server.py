@@ -22,7 +22,7 @@ import os
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import Body, FastAPI, Header, HTTPException, Query, Request
@@ -36,8 +36,11 @@ from playground.webhook.signature import explain_signature, verify_signature
 # Load .env at import time so env vars are available immediately
 load_dotenv()
 
-# Web directory (for static file serving)
+# Web directory — dev layout: repo/web/; installed layout: xchat_playground/web/
 _WEB_DIR = Path(__file__).parent.parent.parent / "web"
+if not _WEB_DIR.exists():
+    # Installed via pip: web/ is bundled under xchat_playground/web/
+    _WEB_DIR = Path(__file__).parent.parent / "xchat_playground" / "web"
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -113,7 +116,7 @@ def create_app() -> FastAPI:
     @app.post("/webhook", summary="Receive XChat Event", tags=["webhook"])
     async def receive_event(
         request: Request,
-        x_signature_256: Optional[str] = Header(None, alias="X-Signature-256"),
+        x_signature_256: str | None = Header(None, alias="X-Signature-256"),
     ):
         """Receive an XChat Activity API event, validate signature, log it."""
         body = await request.body()
@@ -223,7 +226,7 @@ def create_app() -> FastAPI:
         try:
             return run_pack(pack_id, verbose=verbose)
         except ValueError as e:
-            raise HTTPException(status_code=404, detail=str(e))
+            raise HTTPException(status_code=404, detail=str(e)) from e
 
     # ── Health check ──────────────────────────────────────────────────────────
 

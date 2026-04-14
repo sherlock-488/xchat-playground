@@ -1,6 +1,7 @@
 """Tests for the event simulator module."""
 
 import pytest
+
 from playground.simulator.events import EventSimulator, EventType
 
 

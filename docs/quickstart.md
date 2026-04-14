@@ -12,7 +12,7 @@ No X developer account needed for local testing.
 ## Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/xchat-playground
+git clone https://github.com/sherlock-488/xchat-playground
 cd xchat-playground
 pip install uv
 uv sync

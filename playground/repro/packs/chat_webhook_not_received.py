@@ -16,8 +16,6 @@ Forum thread: https://devcommunity.x.com (search "chat webhook not received")
 
 from __future__ import annotations
 
-import json
-
 
 class ChatWebhookNotReceivedPack:
     title = "chat.received webhook not delivered"

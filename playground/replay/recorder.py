@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 # Fields to redact (replace with placeholder)
 _PII_FIELDS = {
     "sender_id",

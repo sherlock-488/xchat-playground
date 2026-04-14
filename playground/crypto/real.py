@@ -68,7 +68,7 @@ class RealCrypto:
         """
         # Validate we have key material
         private_keys = self._state.get("private_keys", {})
-        user_id = self._state.get("user_id", "unknown")
+        self._state.get("user_id", "unknown")
         key_version = self._state.get("signing_key_version", "unknown")
 
         if not private_keys:
@@ -90,7 +90,7 @@ class RealCrypto:
 
         try:
             # Attempt basic base64 decode to check if it's a stub payload
-            from playground.crypto.stub import StubCrypto, STUB_PREFIX
+            from playground.crypto.stub import STUB_PREFIX, StubCrypto
             if encrypted_content.startswith(STUB_PREFIX):
                 stub_result = StubCrypto().decrypt(encrypted_content)
                 stub_result["mode"] = "real-fallback-stub"
@@ -130,8 +130,8 @@ class RealCrypto:
         # Step 2: Decode the encrypted content
         try:
             encrypted_bytes = base64.b64decode(encrypted_content)
-        except Exception:
-            raise ValueError(f"Cannot base64-decode encrypted_content: {encrypted_content[:40]}...")
+        except Exception as err:
+            raise ValueError(f"Cannot base64-decode encrypted_content: {encrypted_content[:40]}...") from err
 
         # Step 3: Placeholder — real implementation needs chat-xdk
         # When chat-xdk is released, replace this with:

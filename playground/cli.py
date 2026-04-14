@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 from dotenv import load_dotenv
@@ -50,7 +49,7 @@ def serve(
 ):
     """Start the local webhook server + web UI at http://localhost:7474"""
     import uvicorn
-    from playground.webhook.server import create_app
+
 
     console.print(Panel(
         f"[bold green]xchat-playground[/] server starting\n"
@@ -143,7 +142,7 @@ def simulate_chat_received(
     recipient_id: str = typer.Option("444555666", help="Recipient user ID"),
     conversation_id: str = typer.Option(None, help="Conversation ID (auto-generated if omitted)"),
     encrypted: bool = typer.Option(True, help="Include stub encrypted payload"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Save to file"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Save to file"),
     pretty: bool = typer.Option(True, help="Pretty-print JSON"),
 ):
     """Generate a chat.received event fixture."""
@@ -164,7 +163,7 @@ def simulate_chat_received(
 def simulate_chat_sent(
     sender_id: str = typer.Option("444555666", help="Sender user ID"),
     recipient_id: str = typer.Option("111222333", help="Recipient user ID"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Save to file"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Save to file"),
 ):
     """Generate a chat.sent event fixture."""
     from playground.simulator.events import EventSimulator, EventType
@@ -177,7 +176,7 @@ def simulate_chat_sent(
 @simulate_app.command("conversation-join")
 def simulate_conversation_join(
     user_id: str = typer.Option("111222333", help="User ID joining"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Save to file"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Save to file"),
 ):
     """Generate a chat.conversation_join event fixture."""
     from playground.simulator.events import EventSimulator, EventType
@@ -268,6 +267,7 @@ def replay_run(
 ):
     """Replay a fixture file against a local webhook handler."""
     import asyncio
+
     from playground.replay.replayer import EventReplayer
 
     async def _run():
@@ -289,6 +289,7 @@ def replay_diff(
 ):
     """Diff responses from two handlers for the same events."""
     import asyncio
+
     from playground.replay.diff import diff_two_handlers
 
     async def _run():
@@ -386,7 +387,7 @@ def repro_run(
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-def _output_json(data: dict, output: Optional[Path], pretty: bool = True) -> None:
+def _output_json(data: dict, output: Path | None, pretty: bool = True) -> None:
     text = json.dumps(data, indent=2 if pretty else None)
     if output:
         output.parent.mkdir(parents=True, exist_ok=True)

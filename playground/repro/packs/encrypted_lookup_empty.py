@@ -17,8 +17,6 @@ Forum thread: https://devcommunity.x.com (search "dm_events returns empty")
 
 from __future__ import annotations
 
-import json
-
 
 class EncryptedLookupEmptyPack:
     title = "GET /2/dm_events/{id} returns {} for encrypted chat"

@@ -6,8 +6,6 @@ import difflib
 import json
 from pathlib import Path
 
-import httpx
-
 from playground.replay.replayer import EventReplayer
 
 
@@ -34,7 +32,7 @@ async def diff_two_handlers(
     candidate_results = await candidate.replay_file(fixture_path, delay=0)
 
     results = []
-    for i, (b, c) in enumerate(zip(baseline_results, candidate_results)):
+    for i, (b, c) in enumerate(zip(baseline_results, candidate_results, strict=False)):
         b_text = json.dumps(
             {"status": b["status_code"], "body": b["response_body"]},
             indent=2,

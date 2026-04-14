@@ -1,10 +1,9 @@
 """Tests for the replay module (recorder, replayer, diff)."""
 
 import json
-import pytest
-from pathlib import Path
-from playground.replay.recorder import EventRecorder
+
 from playground.replay.diff import diff_responses
+from playground.replay.recorder import EventRecorder
 
 
 class TestEventRecorder:

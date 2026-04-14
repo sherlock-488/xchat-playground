@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import base64
 
-
 STUB_PREFIX = "STUB_ENC_"
 
 

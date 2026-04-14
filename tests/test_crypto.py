@@ -1,7 +1,6 @@
 """Tests for the crypto module (stub and real modes)."""
 
-import pytest
-from playground.crypto.stub import StubCrypto, STUB_PREFIX
+from playground.crypto.stub import STUB_PREFIX, StubCrypto
 
 
 class TestStubCrypto:
