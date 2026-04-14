@@ -42,6 +42,8 @@ After XChat E2EE is enabled on a conversation:
 - `GET /2/dm_events/{id}` returns `{}`
 - Message content is **only** in the `data.payload.encoded_event` field of the Activity Stream event (official XAA envelope)
 
+> **Note on simulator field names:** The demo schema uses `encrypted_content` / `direct_message_events` for readability. These are teaching labels, not the real wire format. The official observed schema (from xchat-bot-python) uses `data.payload.encoded_event`.
+
 See: [Repro Pack — encrypted-lookup-empty](repro-packs.md#encrypted-lookup-empty)
 
 ---

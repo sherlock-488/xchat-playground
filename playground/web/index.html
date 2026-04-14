@@ -373,7 +373,7 @@
               Use <code>playground crypto real</code> in the CLI for real decryption.
             </div>
             <div class="form-group">
-              <label>Encrypted Content (from event.message.encrypted_content)</label>
+              <label>Encoded Event (demo: <code>STUB_ENC_…</code> | official: <code>data.payload.encoded_event</code>)</label>
               <input id="crypto-input" placeholder="STUB_ENC_SGVsbG8h or real payload" />
             </div>
             <button class="btn btn-primary" onclick="decryptStub()">Decrypt (Stub)</button>
@@ -421,7 +421,7 @@ playground doctor
    Any other response = endpoint unverified = no events delivered
 
 3. E2EE messages: DON'T call /2/dm_events/{id} for XChat messages
-   Content is ONLY in the Activity Stream event payload
+   Content is ONLY in the Activity Stream event payload (data.payload.encoded_event)
 
 4. Legacy DM endpoint stops after E2EE upgrade
    Migrate to: Activity API + chat.received subscription

@@ -175,7 +175,15 @@ def simulate_chat_received(
     encrypted: bool = typer.Option(True, help="Include stub encrypted payload"),
     schema: str = typer.Option(
         "demo",
-        help="Fixture schema: 'demo' (flat, for teaching) or 'official' (XAA envelope, mirrors xchat-bot-python)",
+        help=(
+            "Fixture schema: 'demo' (flat, for teaching) or 'official' "
+            "(XAA envelope, mirrors xchat-bot-python — chat.received only)"
+        ),
+    ),
+    strict_official: bool = typer.Option(
+        False,
+        "--strict-official",
+        help="With --schema official: strip _schema/_note metadata for a clean XAA envelope",
     ),
     output: Path | None = typer.Option(None, "--output", "-o", help="Save to file"),
     pretty: bool = typer.Option(True, help="Pretty-print JSON"),
@@ -184,6 +192,9 @@ def simulate_chat_received(
 
     Use --schema official to produce the real X Activity API envelope:
       {"data": {"event_type": "chat.received", "payload": {...}}}
+
+    Add --strict-official to strip simulator metadata (_schema, _note) for a
+    clean envelope suitable for contract testing or feeding to other tools.
     """
     from playground.simulator.events import EventSimulator, EventType
 
@@ -195,6 +206,7 @@ def simulate_chat_received(
         conversation_id=conversation_id,
         encrypted=encrypted,
         schema=schema,
+        strict=strict_official,
     )
     _output_json(event, output, pretty)
 
@@ -234,7 +246,10 @@ def simulate_batch(
     event_type: str = typer.Option("chat.received", help="Event type"),
     schema: str = typer.Option(
         "demo",
-        help="Fixture schema: 'demo' (flat) or 'official' (XAA envelope)",
+        help=(
+            "Fixture schema: 'demo' (flat) or 'official' "
+            "(XAA envelope, chat.received only)"
+        ),
     ),
     output: Path = typer.Option(Path("fixtures/batch.jsonl"), "--output", "-o"),
 ):
@@ -250,10 +265,14 @@ def simulate_batch(
     sim = EventSimulator()
 
     output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w") as f:
-        for _ in range(count):
-            event = sim.generate(et, schema=schema)
-            f.write(json.dumps(event) + "\n")
+    try:
+        with output.open("w") as f:
+            for _ in range(count):
+                event = sim.generate(et, schema=schema)
+                f.write(json.dumps(event) + "\n")
+    except ValueError as e:
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1) from e
 
     console.print(
         f"[green]✓[/] Wrote {count} {schema}-schema events to [bold]{output}[/]"

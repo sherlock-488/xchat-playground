@@ -12,6 +12,9 @@ Two fixture schemas are available:
                encrypted_conversation_key fields.
                Field-level schema inferred from official bot source until
                docs.x.com publishes a complete XChat payload reference.
+               ⚠️  Currently only supported for chat.received.
+               chat.sent and chat.conversation_join have no confirmed
+               official payload shape yet — use schema="demo" for those.
 """
 
 from __future__ import annotations
@@ -44,8 +47,11 @@ class EventSimulator:
     All events are 100% offline — no X API credentials required.
 
     Schema modes:
-        "demo"     — Flat, easy-to-read structure for teaching (default)
-        "official" — Mirrors xchat-bot-python envelope (data.payload)
+        "demo"     — Flat, easy-to-read structure for teaching (default).
+                     Supported for all event types.
+        "official" — Mirrors xchat-bot-python envelope (data.payload).
+                     Only supported for CHAT_RECEIVED; raises ValueError
+                     for other event types (payload shape not yet confirmed).
     """
 
     def generate(
@@ -59,6 +65,7 @@ class EventSimulator:
         encrypted: bool = True,
         message_text: str = "Hello from xchat-playground!",
         schema: str = "demo",
+        strict: bool = False,
         **kwargs: Any,
     ) -> dict:
         """Generate a single event fixture dict.
@@ -66,13 +73,24 @@ class EventSimulator:
         Args:
             schema: "demo" (flat, easy-to-read, default) or "official"
                     (mirrors xchat-bot-python data.payload envelope).
+            strict: When True with schema="official", strip the _schema and
+                    _note metadata fields so the output is a clean XAA envelope
+                    with no simulator annotations.
         """
         now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         conv_id = conversation_id or f"DM_{sender_id}_{recipient_id}"
         msg_id = str(uuid.uuid4()).replace("-", "")[:16]
 
         if schema == "official":
-            return self._official_envelope(
+            if event_type != EventType.CHAT_RECEIVED:
+                raise ValueError(
+                    f"schema='official' is currently only modelled for "
+                    f"EventType.CHAT_RECEIVED (inferred from xchat-bot-python). "
+                    f"'{event_type.value}' has no confirmed official payload shape yet. "
+                    f"Use schema='demo' for {event_type.value}, or open an issue if "
+                    f"you have observed the real payload structure."
+                )
+            result = self._official_envelope(
                 event_type,
                 sender_id,
                 recipient_id,
@@ -81,6 +99,10 @@ class EventSimulator:
                 now,
                 message_text,
             )
+            if strict:
+                result.pop("_schema", None)
+                result.pop("_note", None)
+            return result
 
         if event_type == EventType.CHAT_RECEIVED:
             return self._chat_received(

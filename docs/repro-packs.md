@@ -44,12 +44,14 @@ npx cloudflared tunnel --url http://localhost:7474
 
 **Symptom:** `GET /2/dm_events/{id}` returns `{}` after receiving a `chat.received` event.
 
-**Root cause:** After E2EE is enabled for a conversation, the legacy `/2/dm_events` endpoint no longer returns message content. The message is only accessible via the encrypted `encrypted_content` field in the Activity Stream event itself.
+**Root cause:** After E2EE is enabled for a conversation, the legacy `/2/dm_events` endpoint no longer returns message content. The message is only accessible via the `data.payload.encoded_event` field in the Activity Stream event (official XAA envelope).
+
+> **Schema note:** `direct_message_events` / `encrypted_content` are the **demo schema** field names used by this simulator for teaching purposes. The **official observed schema** (from xchat-bot-python) uses `data.payload.encoded_event`.
 
 **Old flow (broken):**
 ```python
-dm_event_id = event["direct_message_events"][0]["id"]
-resp = requests.get(f"/2/dm_events/{dm_event_id}", headers=auth)
+# Trying to look up message content via REST after receiving event
+resp = requests.get(f"/2/dm_events/{some_id}", headers=auth)
 text = resp.json()["data"]["text"]  # KeyError! resp.json() == {}
 ```
 
