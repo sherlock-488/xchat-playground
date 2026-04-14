@@ -45,9 +45,9 @@ dev = [
 playground = "playground.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/YOUR_USERNAME/xchat-playground"
-Documentation = "https://github.com/YOUR_USERNAME/xchat-playground/tree/main/docs"
-"Bug Tracker" = "https://github.com/YOUR_USERNAME/xchat-playground/issues"
+Homepage = "https://github.com/sherlock-488/xchat-playground"
+Documentation = "https://github.com/sherlock-488/xchat-playground/tree/main/docs"
+"Bug Tracker" = "https://github.com/sherlock-488/xchat-playground/issues"
 "X Developer Forum" = "https://devcommunity.x.com"
 
 [tool.ruff]

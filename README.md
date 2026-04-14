@@ -4,7 +4,7 @@
 > Debug webhooks, replay `chat.received` events, and test E2EE decrypt flows —
 > all offline, zero API credits burned.
 
-[![CI](https://github.com/YOUR_USERNAME/xchat-playground/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/xchat-playground/actions/workflows/ci.yml)
+[![CI](https://github.com/sherlock-488/xchat-playground/actions/workflows/ci.yml/badge.svg)](https://github.com/sherlock-488/xchat-playground/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![X Developer Forum](https://img.shields.io/badge/X%20Dev-Forum-1d9bf0)](https://devcommunity.x.com)
@@ -41,7 +41,7 @@ This playground gives you a **local harness** to reproduce, replay, and diff all
 ## Quickstart (no API key needed)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/xchat-playground
+git clone https://github.com/sherlock-488/xchat-playground
 cd xchat-playground
 pip install uv && uv sync
 uv run playground serve
