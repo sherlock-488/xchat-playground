@@ -1,0 +1,23 @@
+{
+  "event_type": "chat.received",
+  "created_at": "2026-04-17T00:00:00Z",
+  "for_user_id": "444555666",
+  "direct_message_events": [
+    {
+      "id": "abc123def456789",
+      "event_type": "MessageCreate",
+      "created_at": "2026-04-17T00:00:00Z",
+      "dm_conversation_id": "DM_111222333_444555666",
+      "sender_id": "111222333",
+      "participant_ids": ["111222333", "444555666"],
+      "message": {
+        "encrypted_content": "STUB_ENC_SGVsbG8gZnJvbSB4Y2hhdC1wbGF5Z3JvdW5kIQ==",
+        "encryption_type": "XChaCha20Poly1305",
+        "key_version": "1",
+        "recipient_keys": {
+          "444555666": "STUB_KEY_deadbeef01234567"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "event_type": "chat.sent",
+  "created_at": "2026-04-17T00:00:01Z",
+  "for_user_id": "111222333",
+  "direct_message_events": [
+    {
+      "id": "bcd234efg567890",
+      "event_type": "MessageCreate",
+      "created_at": "2026-04-17T00:00:01Z",
+      "dm_conversation_id": "DM_111222333_444555666",
+      "sender_id": "111222333",
+      "participant_ids": ["111222333", "444555666"],
+      "message": {
+        "text": "[Sent message — plaintext available to sender only]"
+      }
+    }
+  ]
+}

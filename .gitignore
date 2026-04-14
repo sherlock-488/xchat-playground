@@ -1,0 +1,40 @@
+# Security — NEVER commit these
+state.json
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# uv / virtual envs
+.venv/
+venv/
+.python-version
+
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.ruff_cache/
+
+# Recordings (may contain real events)
+recordings/
+*.jsonl
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

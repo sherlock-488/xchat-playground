@@ -1,0 +1,14 @@
+{
+  "event_type": "chat.conversation_join",
+  "created_at": "2026-04-17T00:00:02Z",
+  "for_user_id": "111222333",
+  "direct_message_events": [
+    {
+      "id": "cde345fgh678901",
+      "event_type": "ParticipantsJoin",
+      "created_at": "2026-04-17T00:00:02Z",
+      "dm_conversation_id": "DM_111222333_444555666",
+      "participant_ids": ["111222333"]
+    }
+  ]
+}

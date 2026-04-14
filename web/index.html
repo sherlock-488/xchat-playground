@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xchat-playground</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --green: #3fb950;
+      --blue: #58a6ff;
+      --yellow: #d29922;
+      --red: #f85149;
+      --purple: #bc8cff;
+      --orange: #ffa657;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Layout ── */
+    .app { display: flex; flex-direction: column; height: 100vh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 16px; color: var(--blue); }
+    header .version { font-size: 11px; background: #1f6feb; color: #fff;
+                      padding: 2px 8px; border-radius: 12px; }
+    header .status-dot { width: 8px; height: 8px; border-radius: 50%;
+                         background: var(--green); margin-left: auto; }
+    header .status-label { font-size: 12px; color: var(--muted); }
+
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sidebar nav { padding: 8px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-radius: 6px;
+      cursor: pointer; font-size: 13px; color: var(--muted);
+      border: none; background: none; width: 100%; text-align: left;
+    }
+    .nav-item:hover { background: #21262d; color: var(--text); }
+    .nav-item.active { background: #21262d; color: var(--blue); }
+    .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+    .sidebar-section { padding: 8px 16px 4px; font-size: 11px;
+                        color: var(--muted); text-transform: uppercase;
+                        letter-spacing: 0.5px; margin-top: 8px; }
+
+    /* ── Content ── */
+    .content { flex: 1; overflow-y: auto; padding: 20px; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card-header h2 { font-size: 14px; }
+    .card-body { padding: 16px; }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 6px 14px; border-radius: 6px; font-size: 13px;
+      cursor: pointer; border: 1px solid var(--border);
+      background: #21262d; color: var(--text);
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #30363d; }
+    .btn-primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+    .btn-primary:hover { background: #388bfd; }
+    .btn-danger { background: #21262d; border-color: var(--red); color: var(--red); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+
+    /* ── Event list ── */
+    #event-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .event-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .event-header {
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .event-header:hover { background: #1c2128; }
+    .event-type { font-size: 13px; font-weight: 600; color: var(--green); }
+    .event-time { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .event-body { display: none; border-top: 1px solid var(--border); }
+    .event-body.open { display: block; }
+    .event-body pre {
+      padding: 12px 14px; font-size: 12px; overflow-x: auto;
+      color: var(--text); line-height: 1.5;
+    }
+
+    /* ── Badges ── */
+    .badge {
+      font-size: 11px; padding: 2px 7px; border-radius: 12px;
+      font-weight: 500;
+    }
+    .badge-green { background: #1a4731; color: var(--green); }
+    .badge-red { background: #4d1c1c; color: var(--red); }
+    .badge-blue { background: #1f3a5f; color: var(--blue); }
+    .badge-yellow { background: #3d2f0a; color: var(--yellow); }
+    .badge-purple { background: #2d1f4e; color: var(--purple); }
+
+    /* ── Forms ── */
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 12px; color: var(--muted);
+            margin-bottom: 4px; }
+    input, textarea, select {
+      width: 100%; padding: 8px 10px; border-radius: 6px;
+      border: 1px solid var(--border); background: #0d1117;
+      color: var(--text); font-size: 13px; font-family: monospace;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none; border-color: var(--blue);
+    }
+    textarea { min-height: 80px; resize: vertical; }
+
+    /* ── Code output ── */
+    .code-output {
+      background: #0d1117; border: 1px solid var(--border);
+      border-radius: 6px; padding: 12px; font-size: 12px;
+      font-family: monospace; white-space: pre-wrap;
+      word-break: break-all; color: var(--text);
+      min-height: 60px;
+    }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: flex; gap: 16px; margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .stat {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 120px;
+    }
+    .stat-value { font-size: 24px; font-weight: 600; color: var(--blue); }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Repro packs ── */
+    .repro-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px; margin-bottom: 12px;
+    }
+    .repro-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .repro-desc { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+
+    /* ── Alert ── */
+    .alert {
+      padding: 10px 14px; border-radius: 6px; font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .alert-info { background: #1f3a5f; border: 1px solid #1f6feb; color: var(--blue); }
+    .alert-warn { background: #3d2f0a; border: 1px solid var(--yellow); color: var(--yellow); }
+    .alert-success { background: #1a4731; border: 1px solid var(--green); color: var(--green); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <span style="font-size:20px">🧪</span>
+    <h1>xchat-playground</h1>
+    <span class="version">v0.1.0</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
+      <span class="status-dot" id="status-dot"></span>
+      <span class="status-label" id="status-label">connecting...</span>
+    </span>
+  </header>
+
+  <div class="main">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <nav>
+        <div class="sidebar-section">Monitor</div>
+        <button class="nav-item active" onclick="showPanel('events')" id="nav-events">
+          <span class="nav-icon">📡</span> Events
+        </button>
+
+        <div class="sidebar-section">Tools</div>
+        <button class="nav-item" onclick="showPanel('simulate')" id="nav-simulate">
+          <span class="nav-icon">⚡</span> Simulate
+        </button>
+        <button class="nav-item" onclick="showPanel('webhook')" id="nav-webhook">
+          <span class="nav-icon">🔐</span> Webhook
+        </button>
+        <button class="nav-item" onclick="showPanel('crypto')" id="nav-crypto">
+          <span class="nav-icon">🔑</span> Crypto
+        </button>
+
+        <div class="sidebar-section">Debug</div>
+        <button class="nav-item" onclick="showPanel('repro')" id="nav-repro">
+          <span class="nav-icon">🐛</span> Repro Packs
+        </button>
+
+        <div class="sidebar-section">Info</div>
+        <button class="nav-item" onclick="showPanel('docs')" id="nav-docs">
+          <span class="nav-icon">📖</span> Docs
+        </button>
+      </nav>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- Events Panel -->
+      <div class="panel active" id="panel-events">
+        <div class="stats-bar" id="stats-bar">
+          <div class="stat">
+            <div class="stat-value" id="stat-total">0</div>
+            <div class="stat-label">Total Events</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="stat-received" style="color:var(--green)">0</div>
+            <div class="stat-label">chat.received</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="stat-errors" style="color:var(--red)">0</div>
+            <div class="stat-label">Sig Errors</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="stat-simulated" style="color:var(--blue)">0</div>
+            <div class="stat-label">Simulated</div>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn btn-primary btn-sm" onclick="loadEvents()">↺ Refresh</button>
+          <button class="btn btn-sm" onclick="clearEvents()">🗑 Clear</button>
+          <button class="btn btn-sm" onclick="toggleAutoRefresh()" id="auto-btn">⏸ Auto-refresh ON</button>
+        </div>
+
+        <div id="event-list">
+          <div style="color:var(--muted);font-size:13px;padding:20px 0">
+            No events yet. Use Simulate → to inject test events, or send a real webhook.
+          </div>
+        </div>
+      </div>
+
+      <!-- Simulate Panel -->
+      <div class="panel" id="panel-simulate">
+        <div class="card">
+          <div class="card-header"><span>⚡</span><h2>Inject Simulated Events</h2></div>
+          <div class="card-body">
+            <div class="alert alert-info">
+              Events are injected into the local event log. No X API credentials needed.
+            </div>
+            <div class="form-group">
+              <label>Event Type</label>
+              <select id="sim-type">
+                <option value="chat.received">chat.received</option>
+                <option value="chat.sent">chat.sent</option>
+                <option value="chat.conversation_join">chat.conversation_join</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Sender ID</label>
+              <input id="sim-sender" value="111222333" />
+            </div>
+            <div class="form-group">
+              <label>Recipient ID</label>
+              <input id="sim-recipient" value="444555666" />
+            </div>
+            <div class="form-group">
+              <label>Count</label>
+              <input id="sim-count" type="number" value="1" min="1" max="20" />
+            </div>
+            <button class="btn btn-primary" onclick="injectEvents()">Inject Events</button>
+            <div id="sim-result" class="code-output" style="margin-top:12px;display:none"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Webhook Panel -->
+      <div class="panel" id="panel-webhook">
+        <div class="card">
+          <div class="card-header"><span>🔐</span><h2>CRC Challenge Calculator</h2></div>
+          <div class="card-body">
+            <div class="alert alert-info">
+              X sends GET /webhook?crc_token=xxx to verify your endpoint.
+              Paste the token and your secret to compute the correct response.
+            </div>
+            <div class="form-group">
+              <label>CRC Token (from X)</label>
+              <input id="crc-token" placeholder="e.g. abc123xyz" />
+            </div>
+            <div class="form-group">
+              <label>Consumer Secret</label>
+              <input id="crc-secret" type="password" placeholder="Your app's consumer secret" />
+            </div>
+            <button class="btn btn-primary" onclick="computeCRC()">Compute Response</button>
+            <div id="crc-result" class="code-output" style="margin-top:12px;display:none"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span>✅</span><h2>Signature Explainer</h2></div>
+          <div class="card-body">
+            <div class="alert alert-info">
+              Step-by-step breakdown of HMAC-SHA256 webhook signature.
+              Use this to debug why your signature doesn't match X's.
+            </div>
+            <div class="form-group">
+              <label>Payload (raw request body)</label>
+              <textarea id="sig-payload" placeholder='{"event_type":"chat.received",...}'></textarea>
+            </div>
+            <div class="form-group">
+              <label>Consumer Secret</label>
+              <input id="sig-secret" type="password" placeholder="Your app's consumer secret" />
+            </div>
+            <button class="btn btn-primary" onclick="explainSignature()">Explain Signature</button>
+            <div id="sig-result" class="code-output" style="margin-top:12px;display:none"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Crypto Panel -->
+      <div class="panel" id="panel-crypto">
+        <div class="card">
+          <div class="card-header"><span>🔑</span><h2>Crypto Sandbox (Stub Mode)</h2></div>
+          <div class="card-body">
+            <div class="alert alert-warn">
+              Stub mode only. Real-key decryption requires state.json from xchat-bot-python.
+              Use <code>playground crypto real</code> in the CLI for real decryption.
+            </div>
+            <div class="form-group">
+              <label>Encrypted Content (from event.message.encrypted_content)</label>
+              <input id="crypto-input" placeholder="STUB_ENC_SGVsbG8h or real payload" />
+            </div>
+            <button class="btn btn-primary" onclick="decryptStub()">Decrypt (Stub)</button>
+            <button class="btn btn-sm" onclick="loadCryptoExample()">Load Example</button>
+            <div id="crypto-result" class="code-output" style="margin-top:12px;display:none"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Repro Panel -->
+      <div class="panel" id="panel-repro">
+        <div class="alert alert-info">
+          One-click reproductions of known XChat API issues.
+          Each pack explains the root cause and provides a workaround.
+        </div>
+        <div id="repro-list">Loading...</div>
+      </div>
+
+      <!-- Docs Panel -->
+      <div class="panel" id="panel-docs">
+        <div class="card">
+          <div class="card-header"><span>📖</span><h2>Quick Reference</h2></div>
+          <div class="card-body">
+            <h3 style="font-size:13px;margin-bottom:8px;color:var(--blue)">CLI Commands</h3>
+            <div class="code-output">
+playground serve              # Start this UI + webhook server
+playground simulate chat-received --sender-id 123
+playground webhook crc &lt;token&gt; --consumer-secret &lt;secret&gt;
+playground webhook verify &lt;payload&gt; &lt;signature&gt;
+playground replay run fixtures/session.jsonl
+playground replay diff fixtures/session.jsonl --baseline-url ... --candidate-url ...
+playground crypto stub &lt;payload&gt;
+playground crypto real &lt;payload&gt; --state-file state.json
+playground repro list
+playground repro run encrypted-lookup-empty --verbose
+playground doctor
+            </div>
+
+            <h3 style="font-size:13px;margin:16px 0 8px;color:var(--blue)">Known Gotchas</h3>
+            <div class="code-output">
+1. Callback URL: use http://127.0.0.1 not http://localhost
+   (X's OAuth2 validation treats them differently)
+
+2. CRC challenge: must return {"response_token": "sha256=..."}
+   Any other response = endpoint unverified = no events delivered
+
+3. E2EE messages: DON'T call /2/dm_events/{id} for XChat messages
+   Content is ONLY in the Activity Stream event payload
+
+4. Legacy DM endpoint stops after E2EE upgrade
+   Migrate to: Activity API + chat.received subscription
+
+5. state.json contains private keys — NEVER commit to git
+   Add to .gitignore immediately after xchat-bot-python login
+            </div>
+
+            <h3 style="font-size:13px;margin:16px 0 8px;color:var(--blue)">Resources</h3>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
+              <a href="https://developer.x.com" target="_blank" style="color:var(--blue)">
+                → X Developer Portal
+              </a>
+              <a href="https://devcommunity.x.com" target="_blank" style="color:var(--blue)">
+                → X Developer Forum
+              </a>
+              <a href="https://github.com/xdevplatform/xchat-bot-python" target="_blank" style="color:var(--blue)">
+                → xchat-bot-python (official template)
+              </a>
+              <a href="/docs" target="_blank" style="color:var(--blue)">
+                → OpenAPI Docs (this server)
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- .content -->
+  </div><!-- .main -->
+</div><!-- .app -->
+
+<script src="/web/app.js"></script>
+</body>
+</html>

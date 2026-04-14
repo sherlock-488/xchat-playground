@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run tests
+        run: uv run pytest tests/ -v --tb=short
+
+      - name: Upload coverage (Python 3.12 only)
+        if: matrix.python-version == '3.12'
+        run: |
+          uv run pytest tests/ --tb=short \
+            --cov=playground \
+            --cov-report=term-missing \
+            --cov-report=xml
+        continue-on-error: true
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Ruff lint
+        run: uv run ruff check playground/ tests/
+
+      - name: Ruff format check
+        run: uv run ruff format --check playground/ tests/
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for secrets in code
+        run: |
+          # Fail if state.json is tracked
+          if git ls-files --error-unmatch state.json 2>/dev/null; then
+            echo "ERROR: state.json is tracked by git! Remove it immediately."
+            exit 1
+          fi
+          # Fail if .env is tracked
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "ERROR: .env is tracked by git! Remove it immediately."
+            exit 1
+          fi
+          echo "No sensitive files tracked. ✓"
+
+      - name: Check .gitignore has required entries
+        run: |
+          required=("state.json" ".env")
+          for entry in "${required[@]}"; do
+            if ! grep -q "^${entry}$\|^${entry}" .gitignore; then
+              echo "WARNING: ${entry} not found in .gitignore"
+            else
+              echo ".gitignore covers ${entry} ✓"
+            fi
+          done
