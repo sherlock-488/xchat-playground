@@ -343,7 +343,10 @@ def create_app() -> FastAPI:
                 status_code=400,
                 detail=f"Unknown event type: {event_type}. Valid: {list(type_map.keys())}",
             )
-        event = EventSimulator().generate(et, **body)
+        try:
+            event = EventSimulator().generate(et, **body)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
         _log(
             {
                 "received_at": datetime.now(timezone.utc).isoformat(),

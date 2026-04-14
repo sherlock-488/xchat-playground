@@ -104,6 +104,16 @@ def test_simulate_unknown_type_returns_400(client):
     assert r.status_code == 400
 
 
+def test_simulate_official_schema_unsupported_event_returns_400(client):
+    """official schema on chat.sent/conversation_join → 400, not 500."""
+    for event_type in ("chat.sent", "chat.conversation_join"):
+        r = client.post(f"/api/simulate/{event_type}", json={"schema": "official"})
+        assert r.status_code == 400, (
+            f"{event_type} with schema=official should return 400"
+        )
+        assert "only modelled for" in r.json()["detail"]
+
+
 def test_simulate_increments_event_count(client):
     before = client.get("/api/events").json()["total"]
     client.post("/api/simulate/chat.sent", json={})

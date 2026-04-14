@@ -346,14 +346,25 @@ def replay_run(
         "http://127.0.0.1:7474/webhook", help="Handler URL to replay against"
     ),
     delay: float = typer.Option(0.1, help="Delay between events (seconds)"),
+    consumer_secret: str = typer.Option(
+        None,
+        envvar="CONSUMER_SECRET",
+        help="Sign replayed requests with x-twitter-webhooks-signature (reads CONSUMER_SECRET env by default)",
+    ),
 ):
-    """Replay a fixture file against a local webhook handler."""
+    """Replay a fixture file against a local webhook handler.
+
+    If the target server validates signatures, pass --consumer-secret (or set
+    CONSUMER_SECRET) so replayed requests include x-twitter-webhooks-signature.
+    """
     import asyncio
 
     from playground.replay.replayer import EventReplayer
 
     async def _run():
-        replayer = EventReplayer(target_url=target)
+        replayer = EventReplayer(
+            target_url=target, consumer_secret=consumer_secret or None
+        )
         results = await replayer.replay_file(fixture, delay=delay)
         for r in results:
             status = "[green]✓[/]" if r["success"] else "[red]✗[/]"
@@ -368,6 +379,11 @@ def replay_diff(
     fixture: Path = typer.Argument(..., help="Path to event fixture"),
     baseline_url: str = typer.Option(..., help="Baseline handler URL"),
     candidate_url: str = typer.Option(..., help="Candidate handler URL"),
+    consumer_secret: str = typer.Option(
+        None,
+        envvar="CONSUMER_SECRET",
+        help="Sign replayed requests with x-twitter-webhooks-signature",
+    ),
 ):
     """Diff responses from two handlers for the same events."""
     import asyncio
@@ -375,7 +391,12 @@ def replay_diff(
     from playground.replay.diff import diff_two_handlers
 
     async def _run():
-        results = await diff_two_handlers(fixture, baseline_url, candidate_url)
+        results = await diff_two_handlers(
+            fixture,
+            baseline_url,
+            candidate_url,
+            consumer_secret=consumer_secret or None,
+        )
         for r in results:
             if r["identical"]:
                 console.print(f"  [green]=[/] {r['event_id']} — responses identical")
@@ -434,7 +455,7 @@ def replay_export(
             f"[bold green]✓ Exported {event_count} events[/]\n\n"
             f"[bold]Output:[/]  {output}\n"
             f"[bold]Scrubbed:[/] {'yes — real IDs replaced with FAKE_USER_xxx' if scrub else '[yellow]NO — real IDs preserved[/yellow]'}\n\n"
-            "[dim]Replay with: playground replay run {output}[/dim]",
+            f"[dim]Replay with: playground replay run {output}[/dim]",
             title="Replay Export",
             border_style="green",
         )
