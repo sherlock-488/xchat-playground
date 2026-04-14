@@ -1,8 +1,8 @@
-"""Repro Pack: GET /2/dm_events/{id} returns empty {} after chat.received.
+"""Repro Pack: REST lookup returns empty {} for XChat E2EE messages.
 
-Community report: Bot receives a chat.received webhook event with a
-dm_event_id. When it calls GET /2/dm_events/{dm_event_id} to fetch
-message details, the API returns an empty object {}.
+Community report: Bot receives a chat.received event via Activity Stream.
+When it tries to look up message content via a REST API call, it gets
+an empty object {}.
 
 Root cause:
   After XChat's E2EE is enabled for a conversation, the legacy
@@ -22,8 +22,9 @@ from __future__ import annotations
 class EncryptedLookupEmptyPack:
     title = "GET /2/dm_events/{id} returns {} for encrypted chat"
     description = (
-        "Reproduces the scenario where chat.received arrives but "
-        "looking up the dm_event_id via the REST API returns an empty object."
+        "Reproduces the scenario where a chat.received event arrives via "
+        "Activity Stream but trying to look up message content via a REST "
+        "API call returns an empty object {}."
     )
     forum_url = "https://devcommunity.x.com"
 

@@ -87,3 +87,26 @@ class TestEventSimulator:
         events = [sim.generate(EventType.CHAT_RECEIVED) for _ in range(10)]
         ids = [e["direct_message_events"][0]["id"] for e in events]
         assert len(set(ids)) == 10, "Message IDs should be unique"
+
+    def test_official_schema_encoded_event_decodable_by_stub_crypto(self, sim):
+        """official schema encoded_event must use STUB_ENC_ prefix — StubCrypto can decode it."""
+        from playground.crypto.stub import StubCrypto
+
+        event = sim.generate(EventType.CHAT_RECEIVED, schema="official")
+
+        # Verify envelope structure
+        assert "data" in event
+        payload = event["data"]["payload"]
+        encoded_event = payload["encoded_event"]
+
+        # Must start with STUB_ENC_ so StubCrypto recognises it
+        assert encoded_event.startswith("STUB_ENC_"), (
+            f"encoded_event should start with STUB_ENC_, got: {encoded_event[:30]}"
+        )
+
+        # StubCrypto should decode it to non-None plaintext
+        result = StubCrypto().decrypt(encoded_event)
+        assert result["plaintext"] is not None, (
+            "StubCrypto should decode official encoded_event"
+        )
+        assert len(result["plaintext"]) > 0

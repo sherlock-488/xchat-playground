@@ -348,7 +348,7 @@ function getStaticReproExplanation(id) {
    Fix: verify with 'playground webhook verify'
 
 4. Subscription not created after webhook registration
-   Fix: POST /2/users/:id/activity/subscriptions`,
+   Fix: POST /2/activity/subscriptions`,
 
     "encrypted-lookup-empty": `Symptom: GET /2/dm_events/{id} returns {}
 
@@ -359,7 +359,7 @@ Old flow (broken):
   receive chat.received → lookup /2/dm_events/{id} → read .text
 
 New flow (correct):
-  receive chat.received → read event.message.encrypted_content → decrypt`,
+  receive chat.received → read data.payload.encoded_event → decrypt`,
 
     "legacy-dm-stops-after-e2ee": `Symptom: GET /2/users/:id/direct_messages stops returning new messages
 
@@ -368,7 +368,7 @@ messages go through the new encrypted stack, not legacy DM infrastructure.
 
 Migration path:
   1. Subscribe to chat.received via Activity API
-  2. Handle encrypted_content in event payload
+  2. Handle data.payload.encoded_event in Activity Stream event
   3. Decrypt using private keys from state.json
   4. Reply via POST /2/dm_conversations/:id/messages`,
   };

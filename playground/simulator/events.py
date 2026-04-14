@@ -25,6 +25,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from playground.crypto.stub import STUB_PREFIX
+
 
 class EventType(str, Enum):
     CHAT_RECEIVED = "chat.received"
@@ -219,15 +221,16 @@ class EventSimulator:
         NOTE: Field-level schema inferred from official bot source code.
         Stub values used — real decryption requires chat-xdk + private keys.
         """
-        stub_encoded = base64.b64encode(
-            f"STUB:{plaintext}:{message_id}".encode()
-        ).decode()
+        # Use STUB_ENC_ prefix so StubCrypto.decrypt() can decode this directly.
+        # playground crypto stub "STUB_ENC_<base64(plaintext)>" → plaintext
+        stub_encoded = STUB_PREFIX + base64.b64encode(plaintext.encode()).decode()
         stub_enc_key = base64.b64encode(os.urandom(32)).decode()
 
         return {
             "_schema": "official-xaa",
             "_note": (
                 "Stub fixture — mirrors xchat-bot-python envelope. "
+                "encoded_event uses STUB_ENC_ prefix: run 'playground crypto stub <value>' to decode. "
                 "Real decryption requires chat-xdk + private keys from state.json."
             ),
             "data": {

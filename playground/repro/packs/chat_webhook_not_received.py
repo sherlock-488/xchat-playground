@@ -80,8 +80,9 @@ class ChatWebhookNotReceivedPack:
                     "fail signature validation and return 403."
                 ),
                 "how_to_debug": (
-                    "Run: playground webhook verify '<payload>' '<X-Signature-256 value>'\n"
-                    "to check if your secret matches."
+                    "Run: playground webhook verify '<payload>' '<x-twitter-webhooks-signature value>'\n"
+                    "to check if your secret matches.\n"
+                    "(Legacy alias X-Signature-256 is also accepted.)"
                 ),
                 "simulation": self._simulate_secret_mismatch(),
             }

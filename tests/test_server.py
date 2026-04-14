@@ -187,9 +187,11 @@ def test_repro_run_unknown_pack_returns_404(client):
 # ── Webhook POST (no secret configured) ──────────────────────────────────────
 
 
-def test_webhook_post_no_secret_logs_event(client):
+def test_webhook_post_no_secret_logs_event(monkeypatch):
+    monkeypatch.delenv("CONSUMER_SECRET", raising=False)
+    c = TestClient(create_app())
     payload = json.dumps({"event_type": "chat.received"}).encode()
-    r = client.post(
+    r = c.post(
         "/webhook",
         content=payload,
         headers={"Content-Type": "application/json"},
@@ -198,8 +200,10 @@ def test_webhook_post_no_secret_logs_event(client):
     assert r.json()["event_type"] == "chat.received"
 
 
-def test_webhook_post_invalid_json_still_logs(client):
-    r = client.post(
+def test_webhook_post_invalid_json_still_logs(monkeypatch):
+    monkeypatch.delenv("CONSUMER_SECRET", raising=False)
+    c = TestClient(create_app())
+    r = c.post(
         "/webhook",
         content=b"not-json",
         headers={"Content-Type": "text/plain"},
@@ -238,9 +242,12 @@ def test_two_app_instances_have_separate_event_logs():
 # ── Official XAA envelope roundtrip ──────────────────────────────────────────
 
 
-def test_official_envelope_webhook_export_roundtrip(client):
+def test_official_envelope_webhook_export_roundtrip(monkeypatch):
     """Official XAA envelope: POST /webhook → /api/events/export → event_type preserved."""
-    # Send an official XAA envelope to /webhook
+    monkeypatch.delenv("CONSUMER_SECRET", raising=False)
+    c = TestClient(create_app())
+
+    # Send an official XAA envelope to /webhook (no secret → no sig required)
     official_event = {
         "data": {
             "event_type": "chat.received",
@@ -253,7 +260,7 @@ def test_official_envelope_webhook_export_roundtrip(client):
             },
         }
     }
-    r = client.post(
+    r = c.post(
         "/webhook",
         content=json.dumps(official_event).encode(),
         headers={"Content-Type": "application/json"},
@@ -262,7 +269,7 @@ def test_official_envelope_webhook_export_roundtrip(client):
     assert r.json()["event_type"] == "chat.received"
 
     # Export and verify event_type is preserved in the JSONL
-    export_r = client.get("/api/events/export?skip_demo=true&scrub_pii=false")
+    export_r = c.get("/api/events/export?skip_demo=true&scrub_pii=false")
     assert export_r.status_code == 200
     lines = [line for line in export_r.text.splitlines() if line.strip()]
     assert lines, "Export should contain at least one event"
@@ -326,3 +333,69 @@ def test_web_app_js_served(client):
     r = client.get("/web/app.js")
     assert r.status_code == 200
     assert "javascript" in r.headers.get("content-type", "").lower() or len(r.text) > 0
+
+
+# ── P0-A: missing signature header rejected when secret is set ────────────────
+
+
+def test_webhook_missing_sig_header_rejected_when_secret_set(monkeypatch):
+    """With CONSUMER_SECRET set, POST /webhook without any signature header → 400."""
+    monkeypatch.setenv("CONSUMER_SECRET", "testsecret")
+    c = TestClient(create_app())
+    r = c.post(
+        "/webhook",
+        content=json.dumps({"event_type": "chat.received"}).encode(),
+        headers={"Content-Type": "application/json"},
+        # Deliberately omit x-twitter-webhooks-signature and X-Signature-256
+    )
+    assert r.status_code == 400
+    assert "signature" in r.json()["detail"].lower()
+
+
+def test_webhook_no_secret_accepts_unsigned(monkeypatch):
+    """Without CONSUMER_SECRET, unsigned requests should still be accepted (dev mode)."""
+    monkeypatch.delenv("CONSUMER_SECRET", raising=False)
+    c = TestClient(create_app())
+    r = c.post(
+        "/webhook",
+        content=json.dumps({"event_type": "chat.received"}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    assert r.status_code == 200
+
+
+# ── P0-B: simulate official → export no double-wrap ──────────────────────────
+
+
+def test_simulate_official_export_not_double_wrapped(client):
+    """simulate chat.received with schema=official → export → no double-wrapped envelope."""
+    # Inject an official-schema simulated event
+    r = client.post("/api/simulate/chat.received", json={"schema": "official"})
+    assert r.status_code == 200
+
+    # Export (skip demo events, no PII scrub for simplicity)
+    export_r = client.get("/api/events/export?skip_demo=true&scrub_pii=false")
+    assert export_r.status_code == 200
+
+    lines = [line for line in export_r.text.splitlines() if line.strip()]
+    assert lines, "Export should contain at least one event"
+
+    exported = [json.loads(line) for line in lines]
+
+    # Find the official event — it should have data.event_type at the top level
+    official_events = [
+        e for e in exported if e.get("data", {}).get("event_type") == "chat.received"
+    ]
+    assert official_events, "Official XAA event should appear in export"
+
+    # Verify NO double-wrap: payload should NOT be nested inside another payload
+    event = official_events[0]
+    # data.payload should contain XAA fields, not another {"event_type", "payload"} wrapper
+    inner = event["data"]["payload"]
+    assert "encoded_event" in inner, "encoded_event should be directly in data.payload"
+    assert "data" not in inner, (
+        "data.payload should not contain another 'data' key (double-wrap)"
+    )
+    assert "event_type" not in inner, (
+        "data.payload should not have event_type (double-wrap)"
+    )

@@ -90,7 +90,7 @@ class LegacyDmStopsAfterE2eePack:
             {
                 "time": "T+4",
                 "event": "Bot checks X Activity Stream (chat.received subscription)",
-                "result": "chat.received event arrives with encrypted_content",
+                "result": "chat.received event arrives with data.payload.encoded_event",
             },
             {
                 "time": "T+5",

@@ -159,8 +159,8 @@ xchat-playground/
 │   ├── webhook/            # CRC + signature + local server
 │   ├── replay/             # Record, replay, diff
 │   ├── crypto/             # Stub + real-key decryption
-│   └── repro/              # Known-bug repro packs
-├── web/                    # Browser UI (index.html + app.js)
+│   ├── repro/              # Known-bug repro packs
+│   └── web/                # Browser UI (index.html + app.js) — canonical source
 ├── tests/                  # pytest test suite
 └── docs/                   # Detailed documentation
 ```

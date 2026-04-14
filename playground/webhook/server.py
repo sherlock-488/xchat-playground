@@ -182,6 +182,19 @@ def create_app() -> FastAPI:
         )
 
         sig_valid = None
+
+        # If a secret is configured, a signature header is mandatory.
+        # No header = reject immediately (prevents silent pass-through in production).
+        if consumer_secret and not sig_header:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Missing signature header. "
+                    "X sends x-twitter-webhooks-signature on every event. "
+                    "If testing locally without X, unset CONSUMER_SECRET."
+                ),
+            )
+
         if consumer_secret and sig_header:
             sig_valid = verify_signature(body, sig_header, consumer_secret)
             if not sig_valid:
@@ -266,10 +279,14 @@ def create_app() -> FastAPI:
             # Build canonical export envelope that preserves event_type
             # and is replayable by 'playground replay run'
             if raw and "data" in raw:
-                # Official XAA envelope — export as-is (scrubbed)
+                # Real webhook received official XAA envelope — export as-is (scrubbed)
                 export_obj = recorder.record(raw)
+            elif isinstance(payload, dict) and "data" in payload:
+                # Simulated official schema: payload IS the XAA envelope already
+                # (avoid double-wrapping into {"event_type", "payload": {"data": ...}})
+                export_obj = recorder.record(payload)
             else:
-                # Demo/flat fixture — wrap in minimal envelope
+                # Demo/flat fixture — wrap in minimal replayable envelope
                 export_obj = recorder.record(
                     {"event_type": event_type, "payload": payload}
                 )

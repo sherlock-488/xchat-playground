@@ -294,7 +294,10 @@ def webhook_crc(
 @webhook_app.command("verify")
 def webhook_verify(
     payload: str = typer.Argument(..., help="Raw request body"),
-    signature: str = typer.Argument(..., help="X-Signature-256 header value"),
+    signature: str = typer.Argument(
+        ...,
+        help="x-twitter-webhooks-signature header value (or legacy X-Signature-256)",
+    ),
     consumer_secret: str = typer.Option(None, envvar="CONSUMER_SECRET"),
 ):
     """Verify a webhook payload signature."""
