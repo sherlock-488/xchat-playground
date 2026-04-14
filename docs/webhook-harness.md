@@ -32,12 +32,15 @@ Go to **Webhook → CRC Challenge Calculator**, enter your token and secret.
 
 ## Signature Validation
 
-Every POST webhook payload is signed by X with `X-Signature-256: sha256=<base64_hmac>`.
+Every POST webhook payload is signed by X with `x-twitter-webhooks-signature: sha256=<base64_hmac>`.
+
+> **Header name:** The official V2 Webhooks API uses `x-twitter-webhooks-signature`.
+> xchat-playground also accepts the legacy `X-Signature-256` alias for backward compatibility.
 
 ### Verify a signature
 
 ```bash
-uv run playground webhook verify '<payload_body>' '<X-Signature-256_header_value>'
+uv run playground webhook verify '<payload_body>' '<x-twitter-webhooks-signature value>'
 ```
 
 ### Step-by-step breakdown

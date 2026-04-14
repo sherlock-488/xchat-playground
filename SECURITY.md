@@ -39,8 +39,9 @@ Never commit `.env` to git. The `.gitignore` in this repo already excludes it.
 
 ### Webhook signature validation
 
-Always validate `X-Signature-256` on incoming webhook payloads.
+Always validate `x-twitter-webhooks-signature` on incoming webhook payloads.
 The playground server does this automatically when `CONSUMER_SECRET` is set.
+The legacy `X-Signature-256` header is also accepted for backward compatibility.
 See `playground/webhook/signature.py` for the implementation.
 
 ### X API data handling

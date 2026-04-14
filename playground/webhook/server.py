@@ -31,7 +31,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from playground.webhook.crc import compute_crc_response
-from playground.webhook.signature import explain_signature, verify_signature
+from playground.webhook.signature import (
+    SIGNATURE_HEADER,
+    SIGNATURE_HEADER_LEGACY,
+    explain_signature,
+    verify_signature,
+)
 
 # Load .env at import time so env vars are available immediately
 load_dotenv()
@@ -53,6 +58,35 @@ class SignatureExplainRequest(BaseModel):
 class CRCRequest(BaseModel):
     crc_token: str
     consumer_secret: str
+
+
+# ── XAA envelope normalizer ───────────────────────────────────────────────────
+
+def _normalize_xaa_event(raw: dict) -> tuple[str, dict]:
+    """Normalize an X Activity API event envelope into (event_type, payload).
+
+    X Activity API wraps events in a data envelope:
+        {"data": {"event_type": "chat.received", "payload": {...}}}
+
+    Demo/legacy fixtures use a flat structure:
+        {"event_type": "chat.received", ...}
+
+    This function handles both so the rest of the server always works with
+    a consistent (event_type, payload) pair regardless of source.
+
+    Returns:
+        (event_type, payload) where payload is the inner event data.
+    """
+    # Official XAA envelope: {"data": {"event_type": ..., "payload": ...}}
+    if "data" in raw and isinstance(raw["data"], dict):
+        data = raw["data"]
+        event_type = data.get("event_type", "unknown")
+        payload = data.get("payload") or data
+        return event_type, payload
+
+    # Flat demo/legacy fixture: {"event_type": ..., ...}
+    event_type = raw.get("event_type", "unknown")
+    return event_type, raw
 
 
 # ── App factory ───────────────────────────────────────────────────────────────
@@ -116,37 +150,60 @@ def create_app() -> FastAPI:
     @app.post("/webhook", summary="Receive XChat Event", tags=["webhook"])
     async def receive_event(
         request: Request,
+        # Official header: x-twitter-webhooks-signature (V2 Webhooks API)
+        x_twitter_webhooks_signature: str | None = Header(
+            None, alias="x-twitter-webhooks-signature"
+        ),
+        # Legacy alias kept for backward compatibility
         x_signature_256: str | None = Header(None, alias="X-Signature-256"),
     ):
-        """Receive an XChat Activity API event, validate signature, log it."""
+        """Receive an X Activity API event, validate signature, log it.
+
+        Accepts both the official x-twitter-webhooks-signature header and the
+        legacy X-Signature-256 alias for backward compatibility.
+        """
         body = await request.body()
 
+        # Prefer official header; fall back to legacy alias
+        sig_header = x_twitter_webhooks_signature or x_signature_256
+        sig_source = (
+            SIGNATURE_HEADER if x_twitter_webhooks_signature
+            else SIGNATURE_HEADER_LEGACY if x_signature_256
+            else None
+        )
+
         sig_valid = None
-        if consumer_secret and x_signature_256:
-            sig_valid = verify_signature(body, x_signature_256, consumer_secret)
+        if consumer_secret and sig_header:
+            sig_valid = verify_signature(body, sig_header, consumer_secret)
             if not sig_valid:
                 _log({
                     "received_at": datetime.now(timezone.utc).isoformat(),
                     "event_type": "signature_error",
                     "signature_valid": False,
                     "payload": {
-                        "received_signature": x_signature_256,
+                        "received_signature": sig_header,
+                        "signature_header_used": sig_source,
                         "body_preview": body[:200].decode("utf-8", errors="replace"),
                     },
                 })
                 raise HTTPException(status_code=403, detail="Invalid signature")
 
         try:
-            payload = json.loads(body)
+            raw = json.loads(body)
         except json.JSONDecodeError:
-            payload = {"raw": body.decode("utf-8", errors="replace")}
+            raw = {"raw": body.decode("utf-8", errors="replace")}
 
-        event_type = payload.get("event_type", "unknown")
+        # Normalize XAA envelope: support both official {data: {event_type, payload}}
+        # and flat demo fixtures {event_type, ...}
+        event_type, payload = _normalize_xaa_event(raw)
+
         _log({
             "received_at": datetime.now(timezone.utc).isoformat(),
             "event_type": event_type,
             "signature_valid": sig_valid,
+            "signature_header_used": sig_source,
             "payload": payload,
+            "raw": raw,
         })
         return {"status": "ok", "event_type": event_type}
 

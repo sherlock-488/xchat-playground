@@ -1,4 +1,18 @@
-"""Generate XChat Activity API event fixtures locally."""
+"""Generate XChat Activity API event fixtures locally.
+
+Two fixture schemas are available:
+
+  "demo"     — Flat structure for teaching and local testing. Easy to read.
+               Uses direct_message_events / encrypted_content style.
+               NOT the official XAA envelope — for education only.
+
+  "official" — Mirrors the envelope structure consumed by xchat-bot-python
+               (github.com/xdevplatform/xchat-bot-python).
+               Uses data.event_type + data.payload with encoded_event /
+               encrypted_conversation_key fields.
+               Field-level schema inferred from official bot source until
+               docs.x.com publishes a complete XChat payload reference.
+"""
 
 from __future__ import annotations
 
@@ -23,9 +37,13 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 class EventSimulator:
-    """Generate realistic XChat event fixtures for local testing.
+    """Generate XChat event fixtures for local testing.
 
     All events are 100% offline — no X API credentials required.
+
+    Schema modes:
+        "demo"     — Flat, easy-to-read structure for teaching (default)
+        "official" — Mirrors xchat-bot-python envelope (data.payload)
     """
 
     def generate(
@@ -38,12 +56,24 @@ class EventSimulator:
         user_id: str | None = None,
         encrypted: bool = True,
         message_text: str = "Hello from xchat-playground!",
+        schema: str = "demo",
         **kwargs: Any,
     ) -> dict:
-        """Generate a single event fixture dict."""
+        """Generate a single event fixture dict.
+
+        Args:
+            schema: "demo" (flat, easy-to-read, default) or "official"
+                    (mirrors xchat-bot-python data.payload envelope).
+        """
         now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         conv_id = conversation_id or f"DM_{sender_id}_{recipient_id}"
         msg_id = str(uuid.uuid4()).replace("-", "")[:16]
+
+        if schema == "official":
+            return self._official_envelope(
+                event_type, sender_id, recipient_id, conv_id, msg_id, now,
+                message_text,
+            )
 
         if event_type == EventType.CHAT_RECEIVED:
             return self._chat_received(
@@ -158,4 +188,46 @@ class EventSimulator:
                     "participant_ids": [user_id],
                 }
             ],
+        }
+
+    def _official_envelope(
+        self,
+        event_type: EventType,
+        sender_id: str,
+        recipient_id: str,
+        conversation_id: str,
+        message_id: str,
+        timestamp: str,
+        plaintext: str,
+    ) -> dict:
+        """Generate an event using the official XAA envelope structure.
+
+        Mirrors the structure consumed by xchat-bot-python:
+            data.event_type + data.payload with encoded_event /
+            encrypted_conversation_key / conversation_key_version.
+
+        NOTE: Field-level schema inferred from official bot source code.
+        Stub values used — real decryption requires chat-xdk + private keys.
+        """
+        stub_encoded = base64.b64encode(
+            f"STUB:{plaintext}:{message_id}".encode()
+        ).decode()
+        stub_enc_key = base64.b64encode(os.urandom(32)).decode()
+
+        return {
+            "_schema": "official-xaa",
+            "_note": (
+                "Stub fixture — mirrors xchat-bot-python envelope. "
+                "Real decryption requires chat-xdk + private keys from state.json."
+            ),
+            "data": {
+                "event_type": event_type.value,
+                "payload": {
+                    "conversation_id": conversation_id,
+                    "encoded_event": stub_encoded,
+                    "encrypted_conversation_key": stub_enc_key,
+                    "conversation_key_version": "1",
+                    "conversation_token": f"STUB_TOKEN_{message_id}",
+                },
+            },
         }

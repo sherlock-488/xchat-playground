@@ -1,7 +1,7 @@
 """HMAC-SHA256 signature verification for X webhook payloads.
 
 X signs every POST payload with your consumer secret and sends the
-signature in the X-Signature-256 header as "sha256=<base64>".
+signature in the x-twitter-webhooks-signature header as "sha256=<base64>".
 
 Reference:
   https://developer.x.com/en/docs/x-api/webhooks
@@ -13,9 +13,15 @@ import base64
 import hashlib
 import hmac
 
+# Official header name (V2 Webhooks API)
+SIGNATURE_HEADER = "x-twitter-webhooks-signature"
+
+# Legacy alias — kept for backward compatibility with older integrations
+SIGNATURE_HEADER_LEGACY = "X-Signature-256"
+
 
 def generate_signature(payload: bytes, consumer_secret: str) -> str:
-    """Generate the X-Signature-256 header value for a payload.
+    """Generate the x-twitter-webhooks-signature header value for a payload.
 
     Args:
         payload: Raw request body bytes.
@@ -33,13 +39,14 @@ def generate_signature(payload: bytes, consumer_secret: str) -> str:
 
 
 def verify_signature(payload: bytes, signature_header: str, consumer_secret: str) -> bool:
-    """Verify a webhook payload against its X-Signature-256 header.
+    """Verify a webhook payload against its x-twitter-webhooks-signature header.
 
     Uses constant-time comparison to prevent timing attacks.
 
     Args:
         payload: Raw request body bytes.
-        signature_header: Value of the X-Signature-256 header.
+        signature_header: Value of the x-twitter-webhooks-signature header
+                          (or legacy X-Signature-256).
         consumer_secret: Your app's consumer secret.
 
     Returns:
@@ -67,4 +74,6 @@ def explain_signature(payload: bytes, consumer_secret: str) -> dict:
         "raw_digest_hex": digest.hex(),
         "base64_digest": b64,
         "header_value": f"sha256={b64}",
+        "header_name": SIGNATURE_HEADER,
+        "header_name_legacy": SIGNATURE_HEADER_LEGACY,
     }

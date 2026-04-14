@@ -62,10 +62,17 @@ class EventReplayer:
         headers = {"Content-Type": "application/json"}
 
         if self.consumer_secret:
-            from playground.webhook.signature import generate_signature
-            headers["X-Signature-256"] = generate_signature(payload, self.consumer_secret)
+            from playground.webhook.signature import (
+                SIGNATURE_HEADER,
+                generate_signature,
+            )
+            headers[SIGNATURE_HEADER] = generate_signature(payload, self.consumer_secret)
 
-        event_type = event.get("event_type", "unknown")
+        # Support both official XAA envelope and flat demo fixtures
+        event_type = (
+            event.get("data", {}).get("event_type")
+            or event.get("event_type", "unknown")
+        )
         try:
             response = await client.post(
                 self.target_url,

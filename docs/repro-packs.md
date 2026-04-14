@@ -27,7 +27,7 @@ uv run playground repro run <pack-id> --verbose
 
 3. **Consumer secret mismatch** — If your handler uses a different secret than the one used to register the webhook, all events are rejected with 403.
 
-4. **Subscription not created** — Registering a webhook URL is separate from subscribing a user. You must call `POST /2/users/:id/activity/subscriptions` after registration.
+4. **Subscription not created** — Registering a webhook URL is separate from subscribing a user. You must call `POST /2/activity/subscriptions` after registration.
 
 **Workaround:**
 ```bash
@@ -53,10 +53,13 @@ resp = requests.get(f"/2/dm_events/{dm_event_id}", headers=auth)
 text = resp.json()["data"]["text"]  # KeyError! resp.json() == {}
 ```
 
-**New flow (correct):**
+**New flow (correct, based on current xchat-bot-python implementation):**
 ```python
-encrypted = event["direct_message_events"][0]["message"]["encrypted_content"]
-plaintext = crypto.decrypt(encrypted)  # use your private keys
+# Official bot reads from data.payload envelope:
+payload = event["data"]["payload"]
+# chat-xdk decrypts encoded_event + conversation key material
+plaintext = chat.decrypt_event(payload)
+text = plaintext.content.text
 ```
 
 ---
@@ -73,8 +76,8 @@ OLD: poll GET /2/users/:id/direct_messages every N seconds
 NEW: subscribe to chat.received via Activity API
 
 Steps:
-1. POST /2/users/:id/activity/subscriptions
-   body: {"event_types": ["chat.received", "chat.sent"]}
+1. POST /2/activity/subscriptions
+   body: {"event_type": "chat.received", "filter": {"user_id": "<your_user_id>"}}
 
 2. Handle chat.received events in your webhook/stream handler
 

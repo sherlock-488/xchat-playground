@@ -88,12 +88,12 @@ class ChatWebhookNotReceivedPack:
             "description": "Webhook registered ≠ subscription created.",
             "what_goes_wrong": (
                 "Registering a webhook URL is separate from subscribing a user "
-                "to events. You must call POST /2/users/:id/activity/subscriptions "
+                "to events. You must call POST /2/activity/subscriptions "
                 "with the correct event types after webhook registration."
             ),
             "how_to_debug": (
                 "Check: GET /2/webhooks to see registered webhooks.\n"
-                "Check: GET /2/users/:id/activity/subscriptions to see active subscriptions."
+                "Check: GET /2/activity/subscriptions to see active subscriptions."
             ),
             "simulation": None,
         })

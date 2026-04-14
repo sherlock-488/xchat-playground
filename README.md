@@ -15,12 +15,16 @@
 
 Building on XChat means dealing with:
 
-- `chat.received` webhooks that silently fail CRC validation
+- `chat.received` events that silently fail CRC validation
 - Encrypted DM payloads that return `{}` when you look them up via REST
 - `dm_events` going quiet after E2EE is enabled on a conversation
 - Event format changes that break your handler at 2am
 
 This playground gives you a **local harness** to reproduce, replay, and diff all of the above **before** touching production.
+
+> **Delivery modes:** X Activity API supports both **webhook** (HTTP POST) and **persistent Activity Stream** (long-lived connection). This playground focuses on the webhook delivery path. The official [xchat-bot-python](https://github.com/xdevplatform/xchat-bot-python) template uses Activity Stream. Both are valid — choose based on your architecture.
+>
+> **Schema note:** Event field-level schema (e.g. `data.payload.encoded_event`) is inferred from the official bot source. X has not yet published a complete XChat payload reference. This repo tracks the official bot as the authoritative contract until docs.x.com catches up.
 
 ---
 
@@ -69,7 +73,7 @@ uv run playground simulate batch --count 20 --output fixtures/batch.jsonl
 
 # Webhook tools
 uv run playground webhook crc <crc_token> --consumer-secret <secret>
-uv run playground webhook verify '<payload>' '<X-Signature-256 value>'
+uv run playground webhook verify '<payload>' '<x-twitter-webhooks-signature value>'
 
 # Replay
 uv run playground replay run fixtures/batch.jsonl --target http://127.0.0.1:8080/webhook
