@@ -137,7 +137,8 @@ class XAAWebhookSmokeTestPack:
             ),
             "status": "info",
             "detail": (
-                "POST /2/webhooks/{webhook_id}/replay with the event time range. "
+                "POST /2/webhooks/replay with webhook_id, from_date, and to_date in the JSON body. "
+                "Timestamps use 12-digit UTC format: yyyymmddhhmm (e.g. 202604170000). "
                 "Rate limit: 100 requests per 15 minutes."
             ),
             "fix": None,
