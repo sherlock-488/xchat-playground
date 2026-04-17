@@ -296,20 +296,42 @@
             </div>
             <div class="form-group">
               <label>Event Type</label>
-              <select id="sim-type">
+              <select id="sim-type" onchange="onSimTypeChange()">
                 <option value="chat.received">chat.received</option>
                 <option value="chat.sent">chat.sent</option>
                 <option value="chat.conversation_join">chat.conversation_join</option>
                 <option value="profile.update.bio">profile.update.bio (docs schema)</option>
               </select>
             </div>
-            <div class="form-group">
-              <label>Sender ID</label>
-              <input id="sim-sender" value="111222333" />
+            <!-- chat fields -->
+            <div id="sim-chat-fields">
+              <div class="form-group">
+                <label>Sender ID</label>
+                <input id="sim-sender" value="111222333" />
+              </div>
+              <div class="form-group">
+                <label>Recipient ID</label>
+                <input id="sim-recipient" value="444555666" />
+              </div>
             </div>
-            <div class="form-group">
-              <label>Recipient ID</label>
-              <input id="sim-recipient" value="444555666" />
+            <!-- profile.update.bio fields -->
+            <div id="sim-profile-fields" style="display:none">
+              <div class="form-group">
+                <label>User ID</label>
+                <input id="sim-profile-user-id" value="2244994945" />
+              </div>
+              <div class="form-group">
+                <label>Bio before</label>
+                <input id="sim-profile-before" value="Mars &amp; Cars" />
+              </div>
+              <div class="form-group">
+                <label>Bio after</label>
+                <input id="sim-profile-after" value="Mars, Cars &amp; AI" />
+              </div>
+              <div class="form-group">
+                <label>Tag (optional)</label>
+                <input id="sim-profile-tag" value="" placeholder="e.g. my subscription" />
+              </div>
             </div>
             <div class="form-group">
               <label>Count</label>

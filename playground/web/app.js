@@ -93,7 +93,7 @@ function renderEvents(events) {
       "observed": "badge-yellow",
       "demo":     "badge-blue",
     }[e.source_schema] || "badge-muted";
-    if (e.source_schema) badges.push(`<span class="badge ${schemaBadgeColor}">${e.source_schema}</span>`);
+    if (e.source_schema) badges.push(`<span class="badge ${schemaBadgeColor}">${escHtml(e.source_schema)}</span>`);
 
     const typeColor = {
       "chat.received": "var(--green)",
@@ -107,10 +107,10 @@ function renderEvents(events) {
     const key = eventKey(e);
     const isOpen = expandedKeys.has(key);
 
-    // filter.user_id + tag metadata row
+    // filter.user_id + tag metadata row — escape all dynamic values
     const metaParts = [];
-    if (e.filter && e.filter.user_id) metaParts.push(`<span style="color:var(--muted);font-size:11px">user_id: <span style="color:var(--text)">${e.filter.user_id}</span></span>`);
-    if (e.tag) metaParts.push(`<span style="color:var(--muted);font-size:11px">tag: <span style="color:var(--text)">${e.tag}</span></span>`);
+    if (e.filter && e.filter.user_id) metaParts.push(`<span style="color:var(--muted);font-size:11px">user_id: <span style="color:var(--text)">${escHtml(String(e.filter.user_id))}</span></span>`);
+    if (e.tag) metaParts.push(`<span style="color:var(--muted);font-size:11px">tag: <span style="color:var(--text)">${escHtml(String(e.tag))}</span></span>`);
     const metaRow = metaParts.length ? `<div style="padding:4px 12px 0;display:flex;gap:12px">${metaParts.join("")}</div>` : "";
 
     // profile.update.bio: show before/after diff instead of raw JSON
@@ -120,24 +120,24 @@ function renderEvents(events) {
         <div style="padding:8px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div>
             <div style="font-size:10px;color:var(--muted);margin-bottom:4px">BEFORE</div>
-            <div style="background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.3);border-radius:4px;padding:6px 8px;color:var(--red);font-size:13px">${escHtml(e.payload.before ?? "")}</div>
+            <div style="background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.3);border-radius:4px;padding:6px 8px;color:var(--red);font-size:13px">${escHtml(String(e.payload.before ?? ""))}</div>
           </div>
           <div>
             <div style="font-size:10px;color:var(--muted);margin-bottom:4px">AFTER</div>
-            <div style="background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);border-radius:4px;padding:6px 8px;color:var(--green);font-size:13px">${escHtml(e.payload.after ?? "")}</div>
+            <div style="background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);border-radius:4px;padding:6px 8px;color:var(--green);font-size:13px">${escHtml(String(e.payload.after ?? ""))}</div>
           </div>
         </div>
-        <pre style="margin-top:8px">${JSON.stringify(e.payload, null, 2)}</pre>`;
+        <pre style="margin-top:8px">${escHtml(JSON.stringify(e.payload, null, 2))}</pre>`;
     } else {
-      bodyContent = `<pre>${JSON.stringify(e.payload, null, 2)}</pre>`;
+      bodyContent = `<pre>${escHtml(JSON.stringify(e.payload, null, 2))}</pre>`;
     }
 
     return `
       <div class="event-item" data-key="${key}">
         <div class="event-header" onclick="toggleEvent(this)">
-          <span class="event-type" style="color:${typeColor}">${e.event_type}</span>
+          <span class="event-type" style="color:${typeColor}">${escHtml(e.event_type)}</span>
           ${badges.join(" ")}
-          <span class="event-time">${time}</span>
+          <span class="event-time">${escHtml(time)}</span>
           <span style="color:var(--muted);font-size:11px;margin-left:8px">${isOpen ? "▲" : "▼"}</span>
         </div>
         ${metaRow}
@@ -150,12 +150,13 @@ function renderEvents(events) {
 }
 
 function toggleEvent(header) {
-  const body = header.nextElementSibling;
+  const item = header.closest(".event-item");
+  const body = item.querySelector(".event-body");
   body.classList.toggle("open");
   const arrow = header.querySelector("span:last-child");
   const isOpen = body.classList.contains("open");
   arrow.textContent = isOpen ? "▲" : "▼";
-  const key = header.closest(".event-item").dataset.key;
+  const key = item.dataset.key;
   if (isOpen) expandedKeys.add(key); else expandedKeys.delete(key);
 }
 
@@ -198,17 +199,35 @@ function startAutoRefresh() {
 
 // ── Simulate ───────────────────────────────────────────────────────────────
 
+function onSimTypeChange() {
+  const type = document.getElementById("sim-type").value;
+  const isProfile = type === "profile.update.bio";
+  document.getElementById("sim-chat-fields").style.display = isProfile ? "none" : "";
+  document.getElementById("sim-profile-fields").style.display = isProfile ? "" : "none";
+}
+
 async function injectEvents() {
   const type = document.getElementById("sim-type").value;
-  const sender = document.getElementById("sim-sender").value;
-  const recipient = document.getElementById("sim-recipient").value;
   const count = parseInt(document.getElementById("sim-count").value) || 1;
 
-  // profile.update.bio uses docs schema with different payload fields
-  const isProfileBio = type === "profile.update.bio";
-  const body = isProfileBio
-    ? JSON.stringify({ sender_id: sender, recipient_id: recipient, schema: "docs" })
-    : JSON.stringify({ sender_id: sender, recipient_id: recipient });
+  let body;
+  if (type === "profile.update.bio") {
+    const userId = document.getElementById("sim-profile-user-id").value;
+    const before = document.getElementById("sim-profile-before").value;
+    const after = document.getElementById("sim-profile-after").value;
+    const tag = document.getElementById("sim-profile-tag").value;
+    body = JSON.stringify({
+      schema: "docs",
+      filter_user_id: userId,
+      bio_before: before,
+      bio_after: after,
+      ...(tag ? { tag } : {}),
+    });
+  } else {
+    const sender = document.getElementById("sim-sender").value;
+    const recipient = document.getElementById("sim-recipient").value;
+    body = JSON.stringify({ sender_id: sender, recipient_id: recipient });
+  }
 
   const results = [];
   for (let i = 0; i < count; i++) {
@@ -225,7 +244,6 @@ async function injectEvents() {
   el.style.display = "block";
   el.textContent = `Injected ${count} × ${type}\n\n${JSON.stringify(results[0], null, 2)}`;
 
-  // Switch to events panel
   showPanel("events");
   loadEvents();
 }
