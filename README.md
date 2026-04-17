@@ -201,8 +201,9 @@ xchat-playground/
 This is a **pre-1.0 alpha** released around XChat's April 2026 launch.
 
 - CRC, signature, webhook harness, replay, repro packs: stable and tested
-- `chat.received` official observed schema: tracks xchat-bot-python as the authoritative contract
-- `chat.sent` / `chat.conversation_join` official schema: not yet modelled — use `demo` schema
+- `profile.update.bio`: `docs` schema — matches official docs.x.com delivery example
+- `chat.received`: `observed` schema — inferred from xchat-bot-python, not yet in docs.x.com
+- `chat.sent` / `chat.conversation_join`: `demo` schema only — payload shape provisional
 - `crypto real`: placeholder — will be updated when `chat-xdk` reaches stable release
 - X's event schema is actively evolving; this tool is designed to help you catch schema drift
 

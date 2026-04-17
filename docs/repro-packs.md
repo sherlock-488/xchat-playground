@@ -46,7 +46,7 @@ npx cloudflared tunnel --url http://localhost:7474
 
 **Root cause:** After E2EE is enabled for a conversation, the legacy `/2/dm_events` endpoint no longer returns message content. The message is only accessible via the `data.payload.encoded_event` field in the Activity Stream event (official XAA envelope).
 
-> **Schema note:** `direct_message_events` / `encrypted_content` are the **demo schema** field names used by this simulator for teaching purposes. The **official observed schema** (from xchat-bot-python) uses `data.payload.encoded_event`.
+> **Schema note:** `direct_message_events` / `encrypted_content` are the **demo schema** field names used by this simulator for teaching purposes. The **observed schema** (from xchat-bot-python) uses `data.payload.encoded_event`.
 
 **Old flow (broken):**
 ```python

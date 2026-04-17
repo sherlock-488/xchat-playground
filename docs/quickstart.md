@@ -128,11 +128,16 @@ Watch it appear in the playground UI at http://localhost:7474/ui.
 
 ### 6. If you missed an event
 
-X keeps a 24-hour replay window:
+X keeps a 24-hour replay window. Use `POST /2/webhooks/replay` with 12-digit
+UTC timestamps (`yyyymmddhhmm`) and your webhook ID in the body:
 
 ```bash
-xurl post /2/webhooks/{webhook_id}/replay \
-  -d '{"from_date": "2026-04-17T00:00:00Z", "to_date": "2026-04-17T23:59:59Z"}'
+xurl post /2/webhooks/replay \
+  -d '{
+    "from_date": "202604170000",
+    "to_date": "202604172359",
+    "webhook_id": "<your_webhook_id>"
+  }'
 ```
 
 ---

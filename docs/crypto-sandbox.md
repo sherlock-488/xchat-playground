@@ -4,7 +4,7 @@ Understand XChat's E2EE decryption flow without real keys.
 
 > **Schema terminology:** This project uses two schemas:
 > - **demo schema** — flat, easy-to-read fixtures (`encrypted_content`, `direct_message_events`). For teaching only, not the real XAA wire format.
-> - **official observed schema** — mirrors xchat-bot-python (`data.payload.encoded_event`, `encrypted_conversation_key`). Inferred from the official bot source; field names may change when chat-xdk is released.
+> - **observed schema** — mirrors xchat-bot-python (`data.payload.encoded_event`, `encrypted_conversation_key`). Inferred from the official bot source; field names may change when chat-xdk is released.
 
 ## Two modes
 
