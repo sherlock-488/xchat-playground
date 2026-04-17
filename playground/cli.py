@@ -176,25 +176,28 @@ def simulate_chat_received(
     schema: str = typer.Option(
         "demo",
         help=(
-            "Fixture schema: 'demo' (flat, for teaching) or 'official' "
-            "(XAA envelope, mirrors xchat-bot-python — chat.received only)"
+            "Fixture schema: 'demo' (flat, for teaching), 'observed' "
+            "(XAA envelope inferred from xchat-bot-python — chat.received only), "
+            "or 'official' (deprecated alias for 'observed')"
         ),
     ),
     strict_official: bool = typer.Option(
         False,
         "--strict-official",
-        help="With --schema official: strip _schema/_note metadata for a clean XAA envelope",
+        help="With --schema observed/official: strip _schema/_note metadata for a clean XAA envelope",
     ),
     output: Path | None = typer.Option(None, "--output", "-o", help="Save to file"),
     pretty: bool = typer.Option(True, help="Pretty-print JSON"),
 ):
     """Generate a chat.received event fixture.
 
-    Use --schema official to produce the real X Activity API envelope:
+    Use --schema observed to produce the XAA envelope inferred from xchat-bot-python:
       {"data": {"event_type": "chat.received", "payload": {...}}}
 
     Add --strict-official to strip simulator metadata (_schema, _note) for a
     clean envelope suitable for contract testing or feeding to other tools.
+
+    Note: --schema official is a deprecated alias for --schema observed.
     """
     from playground.simulator.events import EventSimulator, EventType
 
@@ -240,15 +243,59 @@ def simulate_conversation_join(
     _output_json(event, output, pretty=True)
 
 
+@simulate_app.command("profile-update-bio")
+def simulate_profile_update_bio(
+    user_id: str = typer.Option("2244994945", help="X user ID to monitor"),
+    bio_before: str = typer.Option("Mars & Cars", help="Bio before update"),
+    bio_after: str = typer.Option("Mars, Cars & AI", help="Bio after update"),
+    tag: str = typer.Option("", help="Optional subscription tag"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Save to file"),
+    pretty: bool = typer.Option(True, help="Pretty-print JSON"),
+):
+    """Generate a profile.update.bio event fixture (docs schema).
+
+    This is the only XAA event type with a complete official delivery example
+    in docs.x.com as of 2026-04-17. Use it to validate your webhook pipeline
+    against a real X Activity public event — no OAuth required.
+
+    Output matches the official docs.x.com quickstart example:
+      {"data": {"filter": {"user_id": "..."}, "event_type": "profile.update.bio",
+                "payload": {"before": "...", "after": "..."}}}
+
+    To test against a real X webhook:
+      1. Register your webhook: xchat webhook register --url https://your-domain/webhook
+      2. Create subscription: xchat subscriptions create --user-id <your_user_id>
+                              --event-type profile.update.bio
+      3. Change your bio on X
+      4. Watch events arrive in playground UI or bot logs
+    """
+    from playground.simulator.events import EventSimulator, EventType
+
+    sim = EventSimulator()
+    event = sim.generate(
+        EventType.PROFILE_UPDATE_BIO,
+        schema="docs",
+        filter_user_id=user_id,
+        bio_before=bio_before,
+        bio_after=bio_after,
+        tag=tag,
+    )
+    _output_json(event, output, pretty)
+
+
 @simulate_app.command("batch")
 def simulate_batch(
     count: int = typer.Option(5, help="Number of events to generate"),
-    event_type: str = typer.Option("chat.received", help="Event type"),
+    event_type: str = typer.Option(
+        "chat.received",
+        help="Event type: chat.received, chat.sent, chat.conversation_join, profile.update.bio",
+    ),
     schema: str = typer.Option(
         "demo",
         help=(
-            "Fixture schema: 'demo' (flat) or 'official' "
-            "(XAA envelope, chat.received only)"
+            "Fixture schema: 'demo' (flat), 'observed' "
+            "(XAA envelope, chat.received only), 'docs' (profile.update.bio only), "
+            "or 'official' (deprecated alias for 'observed')"
         ),
     ),
     output: Path = typer.Option(Path("fixtures/batch.jsonl"), "--output", "-o"),
@@ -260,6 +307,7 @@ def simulate_batch(
         "chat.received": EventType.CHAT_RECEIVED,
         "chat.sent": EventType.CHAT_SENT,
         "chat.conversation_join": EventType.CONVERSATION_JOIN,
+        "profile.update.bio": EventType.PROFILE_UPDATE_BIO,
     }
     et = type_map.get(event_type, EventType.CHAT_RECEIVED)
     sim = EventSimulator()

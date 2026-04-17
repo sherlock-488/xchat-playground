@@ -65,31 +65,57 @@ class CRCRequest(BaseModel):
 # ── XAA envelope normalizer ───────────────────────────────────────────────────
 
 
-def _normalize_xaa_event(raw: dict) -> tuple[str, dict]:
-    """Normalize an X Activity API event envelope into (event_type, payload).
+def _normalize_xaa_event(raw: dict) -> dict:
+    """Normalize an X Activity API event envelope into a structured log entry.
 
     X Activity API wraps events in a data envelope:
-        {"data": {"event_type": "chat.received", "payload": {...}}}
+        {"data": {"event_type": "...", "filter": {...}, "tag": "...", "payload": {...}}}
 
     Demo/legacy fixtures use a flat structure:
         {"event_type": "chat.received", ...}
 
-    This function handles both so the rest of the server always works with
-    a consistent (event_type, payload) pair regardless of source.
-
-    Returns:
-        (event_type, payload) where payload is the inner event data.
+    Returns a dict with keys:
+        event_type    — the event type string
+        payload       — the inner event payload
+        filter        — filter dict (user_id etc.) if present, else None
+        tag           — subscription tag if present, else None
+        source_schema — "docs", "observed", "demo", or "unknown"
+        raw_envelope  — the original raw dict
     """
-    # Official XAA envelope: {"data": {"event_type": ..., "payload": ...}}
+    # XAA envelope: {"data": {"event_type": ..., "payload": ..., "filter": ..., "tag": ...}}
     if "data" in raw and isinstance(raw["data"], dict):
         data = raw["data"]
         event_type = data.get("event_type", "unknown")
         payload = data.get("payload") or data
-        return event_type, payload
+        filter_data = data.get("filter")
+        tag = data.get("tag")
+        # Detect schema from metadata field (set by simulator) or infer from shape
+        schema_hint = raw.get("_schema", "")
+        if schema_hint == "observed-xaa":
+            source_schema = "observed"
+        elif event_type == "profile.update.bio":
+            source_schema = "docs"
+        else:
+            source_schema = "observed"
+        return {
+            "event_type": event_type,
+            "payload": payload,
+            "filter": filter_data,
+            "tag": tag,
+            "source_schema": source_schema,
+            "raw_envelope": raw,
+        }
 
     # Flat demo/legacy fixture: {"event_type": ..., ...}
     event_type = raw.get("event_type", "unknown")
-    return event_type, raw
+    return {
+        "event_type": event_type,
+        "payload": raw,
+        "filter": None,
+        "tag": None,
+        "source_schema": "demo",
+        "raw_envelope": raw,
+    }
 
 
 # ── App factory ───────────────────────────────────────────────────────────────
@@ -114,25 +140,45 @@ def create_app() -> FastAPI:
         event_log.append(entry)
 
     def _inject_demo_events() -> None:
-        """Inject a couple of demo events so the UI is never blank on first open."""
+        """Inject demo events so the UI is never blank on first open."""
         from playground.simulator.events import EventSimulator, EventType
 
         sim = EventSimulator()
         now = datetime.now(timezone.utc).isoformat()
-        for et, label in [
-            (EventType.CHAT_RECEIVED, "chat.received"),
-            (EventType.CHAT_SENT, "chat.sent"),
-        ]:
-            _log(
-                {
-                    "received_at": now,
-                    "event_type": label,
-                    "signature_valid": None,
-                    "simulated": True,
-                    "demo": True,
-                    "payload": sim.generate(et),
-                }
-            )
+        # chat events — demo schema (flat, easy to read)
+        for et in [EventType.CHAT_RECEIVED, EventType.CHAT_SENT]:
+            payload = sim.generate(et)
+            _log({
+                "received_at": now,
+                "event_type": et.value,
+                "signature_valid": None,
+                "source_schema": "demo",
+                "filter": None,
+                "tag": None,
+                "simulated": True,
+                "demo": True,
+                "payload": payload,
+                "raw": payload,
+            })
+        # profile.update.bio — docs schema (official docs.x.com example)
+        profile_payload = sim.generate(
+            EventType.PROFILE_UPDATE_BIO,
+            schema="docs",
+            filter_user_id="2244994945",
+            tag="demo subscription",
+        )
+        _log({
+            "received_at": now,
+            "event_type": "profile.update.bio",
+            "signature_valid": None,
+            "source_schema": "docs",
+            "filter": {"user_id": "2244994945"},
+            "tag": "demo subscription",
+            "simulated": True,
+            "demo": True,
+            "payload": profile_payload.get("data", {}).get("payload", profile_payload),
+            "raw": profile_payload,
+        })
 
     _inject_demo_events()
 
@@ -221,19 +267,22 @@ def create_app() -> FastAPI:
 
         # Normalize XAA envelope: support both official {data: {event_type, payload}}
         # and flat demo fixtures {event_type, ...}
-        event_type, payload = _normalize_xaa_event(raw)
+        normalized = _normalize_xaa_event(raw)
 
         _log(
             {
                 "received_at": datetime.now(timezone.utc).isoformat(),
-                "event_type": event_type,
+                "event_type": normalized["event_type"],
                 "signature_valid": sig_valid,
                 "signature_header_used": sig_source,
-                "payload": payload,
-                "raw": raw,
+                "source_schema": normalized["source_schema"],
+                "filter": normalized["filter"],
+                "tag": normalized["tag"],
+                "payload": normalized["payload"],
+                "raw": normalized["raw_envelope"],
             }
         )
-        return {"status": "ok", "event_type": event_type}
+        return {"status": "ok", "event_type": normalized["event_type"]}
 
     # ── API: events ───────────────────────────────────────────────────────────
 
@@ -245,7 +294,6 @@ def create_app() -> FastAPI:
     @app.delete("/api/events", summary="Clear Event Log", tags=["api"])
     async def clear_events():
         event_log.clear()
-        _inject_demo_events()
         return {"status": "cleared"}
 
     @app.get("/api/events/export", summary="Export Events as JSONL", tags=["api"])
@@ -336,6 +384,7 @@ def create_app() -> FastAPI:
             "chat.received": EventType.CHAT_RECEIVED,
             "chat.sent": EventType.CHAT_SENT,
             "chat.conversation_join": EventType.CONVERSATION_JOIN,
+            "profile.update.bio": EventType.PROFILE_UPDATE_BIO,
         }
         et = type_map.get(event_type)
         if not et:
@@ -343,17 +392,27 @@ def create_app() -> FastAPI:
                 status_code=400,
                 detail=f"Unknown event type: {event_type}. Valid: {list(type_map.keys())}",
             )
+        # profile.update.bio defaults to docs schema
+        if et == EventType.PROFILE_UPDATE_BIO and "schema" not in body:
+            body = {**body, "schema": "docs"}
         try:
             event = EventSimulator().generate(et, **body)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
+
+        # Normalize for consistent log structure
+        normalized = _normalize_xaa_event(event)
         _log(
             {
                 "received_at": datetime.now(timezone.utc).isoformat(),
                 "event_type": event_type,
                 "signature_valid": None,
+                "source_schema": normalized["source_schema"],
+                "filter": normalized["filter"],
+                "tag": normalized["tag"],
                 "simulated": True,
-                "payload": event,
+                "payload": normalized["payload"],
+                "raw": normalized["raw_envelope"],
             }
         )
         return {"status": "injected", "event": event}

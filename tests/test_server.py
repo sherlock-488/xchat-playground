@@ -61,13 +61,13 @@ def test_demo_events_are_flagged(client):
 # ── Event log CRUD ────────────────────────────────────────────────────────────
 
 
-def test_clear_events_reinjects_demos(client):
+def test_clear_events_empties_log(client):
     r = client.delete("/api/events")
     assert r.status_code == 200
     assert r.json()["status"] == "cleared"
-    # After clear, demo events should be re-injected
+    # After clear, log should be empty (no auto re-inject)
     r2 = client.get("/api/events")
-    assert r2.json()["total"] >= 2
+    assert r2.json()["total"] == 0
 
 
 def test_events_limit_param(client):
@@ -409,3 +409,65 @@ def test_simulate_official_export_not_double_wrapped(client):
     assert "event_type" not in inner, (
         "data.payload should not have event_type (double-wrap)"
     )
+
+
+# ── Contract tests: normalizer preserves filter/tag/source_schema ─────────────
+
+
+def test_contract_xaa_envelope_preserves_filter_and_tag(monkeypatch):
+    """Receiving an XAA envelope must preserve filter and tag in event log."""
+    monkeypatch.delenv("CONSUMER_SECRET", raising=False)
+    c = TestClient(create_app())
+    payload = {
+        "data": {
+            "filter": {"user_id": "2244994945"},
+            "event_type": "profile.update.bio",
+            "tag": "smoke-test",
+            "payload": {"before": "old bio", "after": "new bio"},
+        }
+    }
+    r = c.post("/webhook", content=json.dumps(payload), headers={"Content-Type": "application/json"})
+    assert r.status_code == 200
+    events = c.get("/api/events").json()["events"]
+    bio_events = [e for e in events if e["event_type"] == "profile.update.bio" and not e.get("demo")]
+    assert bio_events, "profile.update.bio event not found in log"
+    ev = bio_events[-1]
+    assert ev.get("filter") == {"user_id": "2244994945"}
+    assert ev.get("tag") == "smoke-test"
+    assert ev.get("source_schema") == "docs"
+
+
+def test_contract_xaa_envelope_source_schema_observed_for_chat(monkeypatch):
+    """chat.received in XAA envelope must be tagged source_schema=observed."""
+    monkeypatch.delenv("CONSUMER_SECRET", raising=False)
+    c = TestClient(create_app())
+    payload = {
+        "_schema": "observed-xaa",
+        "data": {
+            "event_type": "chat.received",
+            "payload": {"encoded_event": "STUB_ENC_dGVzdA=="},
+        },
+    }
+    r = c.post("/webhook", content=json.dumps(payload), headers={"Content-Type": "application/json"})
+    assert r.status_code == 200
+    events = c.get("/api/events").json()["events"]
+    chat_events = [e for e in events if e["event_type"] == "chat.received" and not e.get("demo")]
+    assert chat_events
+    assert chat_events[-1].get("source_schema") == "observed"
+
+
+def test_contract_demo_flat_fixture_tagged_demo(monkeypatch):
+    """Flat demo fixtures must be tagged source_schema=demo."""
+    monkeypatch.delenv("CONSUMER_SECRET", raising=False)
+    c = TestClient(create_app())
+    payload = {
+        "event_type": "chat.sent",
+        "created_at": "2026-04-17T00:00:00Z",
+        "for_user_id": "123",
+    }
+    r = c.post("/webhook", content=json.dumps(payload), headers={"Content-Type": "application/json"})
+    assert r.status_code == 200
+    events = c.get("/api/events").json()["events"]
+    sent_events = [e for e in events if e["event_type"] == "chat.sent" and not e.get("demo")]
+    assert sent_events
+    assert sent_events[-1].get("source_schema") == "demo"

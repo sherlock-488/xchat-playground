@@ -38,15 +38,20 @@ xchat-playground gives you a **local harness** to reproduce, replay, and diff al
 
 ## Scope and honest limits
 
-| Area | Status |
-|------|--------|
-| Webhook CRC + signature validation | ✅ Full support |
-| `chat.received` official observed schema | ✅ Tracks [xchat-bot-python](https://github.com/xdevplatform/xchat-bot-python) |
-| `chat.sent` / `chat.conversation_join` official schema | ⚠️ Demo/teaching schema only — payload shape not yet confirmed |
-| Real E2EE decryption (`crypto real`) | ⚠️ Placeholder — awaits `chat-xdk` stable release |
-| Activity Stream delivery | ℹ️ Not in scope — this tool focuses on the webhook path |
+Aligned with official X Activity API docs as of 2026-04-17.
 
-> **Schema note:** `chat.received` field names (`data.payload.encoded_event`, etc.) are inferred from the official [xchat-bot-python](https://github.com/xdevplatform/xchat-bot-python) source. X has not yet published a complete XChat payload reference. Other event types use demo/teaching field names until confirmed.
+| Area | Status | Schema |
+|------|--------|--------|
+| Webhook CRC + signature validation | ✅ Full support | — |
+| `profile.update.bio` delivery | ✅ Official docs.x.com example | `docs` |
+| `chat.received` envelope | ⚠️ Observed from [xchat-bot-python](https://github.com/xdevplatform/xchat-bot-python) | `observed` |
+| `chat.sent` / `chat.conversation_join` | ⚠️ Event names official; payload shape provisional | `demo` |
+| Real E2EE decryption (`crypto real`) | ⚠️ Placeholder — awaits `chat-xdk` stable release | — |
+| Activity Stream delivery | ℹ️ Not in scope — this tool focuses on the webhook path | — |
+
+**Can be validated against a real X Activity public event today via `profile.update.bio`** — no special OAuth scopes required.
+
+> **Schema labels:** `docs` = matches official docs.x.com delivery example. `observed` = inferred from xchat-bot-python source, not yet in docs.x.com. `demo` = flat teaching format for local testing only.
 
 > **Delivery note:** X Activity API supports both **webhook** (HTTP POST) and **Activity Stream** (long-lived connection). xchat-playground focuses on the webhook path. The official bot template uses Activity Stream. Both are valid — choose based on your architecture.
 
@@ -56,7 +61,7 @@ xchat-playground gives you a **local harness** to reproduce, replay, and diff al
 
 | Module | CLI | What it does |
 |--------|-----|-------------|
-| **Event Simulator** | `playground simulate` | Generate `chat.received` / `chat.sent` / `chat.conversation_join` fixtures |
+| **Event Simulator** | `playground simulate` | Generate `chat.received` / `chat.sent` / `chat.conversation_join` / `profile.update.bio` fixtures |
 | **Webhook Harness** | `playground webhook` | CRC challenge + HMAC-SHA256 signature validation playground |
 | **Replay Lab** | `playground replay` | Record → scrub PII → replay → diff against your handler |
 | **Crypto Sandbox** | `playground crypto` | Stub or real-key decryption flow walkthrough |

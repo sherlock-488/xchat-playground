@@ -8,6 +8,13 @@
 let autoRefresh = true;
 let autoRefreshTimer = null;
 let eventCount = 0;
+const expandedKeys = new Set(); // persists expand state across re-renders
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+
+function escHtml(str) {
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
 // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -50,6 +57,8 @@ async function checkHealth() {
 // ── Events ─────────────────────────────────────────────────────────────────
 
 async function loadEvents() {
+  // Skip re-render if user is actively selecting text (avoids disrupting copy)
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
   try {
     const r = await fetch("/api/events?limit=50");
     const data = await r.json();
@@ -58,6 +67,10 @@ async function loadEvents() {
   } catch (e) {
     console.error("Failed to load events:", e);
   }
+}
+
+function eventKey(e) {
+  return `${e.event_type}:${e.received_at}`;
 }
 
 function renderEvents(events) {
@@ -69,31 +82,67 @@ function renderEvents(events) {
     return;
   }
 
-  list.innerHTML = [...events].reverse().map((e, i) => {
+  list.innerHTML = [...events].reverse().map((e) => {
     const badges = [];
     if (e.simulated) badges.push(`<span class="badge badge-blue">simulated</span>`);
     if (e.signature_valid === false) badges.push(`<span class="badge badge-red">sig invalid</span>`);
     if (e.signature_valid === true) badges.push(`<span class="badge badge-green">sig valid</span>`);
+    // schema badge
+    const schemaBadgeColor = {
+      "docs":     "badge-green",
+      "observed": "badge-yellow",
+      "demo":     "badge-blue",
+    }[e.source_schema] || "badge-muted";
+    if (e.source_schema) badges.push(`<span class="badge ${schemaBadgeColor}">${e.source_schema}</span>`);
 
     const typeColor = {
       "chat.received": "var(--green)",
       "chat.sent": "var(--blue)",
       "chat.conversation_join": "var(--purple)",
+      "profile.update.bio": "var(--orange)",
       "signature_error": "var(--red)",
     }[e.event_type] || "var(--text)";
 
     const time = e.received_at ? new Date(e.received_at).toLocaleTimeString() : "";
+    const key = eventKey(e);
+    const isOpen = expandedKeys.has(key);
+
+    // filter.user_id + tag metadata row
+    const metaParts = [];
+    if (e.filter && e.filter.user_id) metaParts.push(`<span style="color:var(--muted);font-size:11px">user_id: <span style="color:var(--text)">${e.filter.user_id}</span></span>`);
+    if (e.tag) metaParts.push(`<span style="color:var(--muted);font-size:11px">tag: <span style="color:var(--text)">${e.tag}</span></span>`);
+    const metaRow = metaParts.length ? `<div style="padding:4px 12px 0;display:flex;gap:12px">${metaParts.join("")}</div>` : "";
+
+    // profile.update.bio: show before/after diff instead of raw JSON
+    let bodyContent;
+    if (e.event_type === "profile.update.bio" && e.payload && (e.payload.before !== undefined || e.payload.after !== undefined)) {
+      bodyContent = `
+        <div style="padding:8px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:4px">BEFORE</div>
+            <div style="background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.3);border-radius:4px;padding:6px 8px;color:var(--red);font-size:13px">${escHtml(e.payload.before ?? "")}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:4px">AFTER</div>
+            <div style="background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);border-radius:4px;padding:6px 8px;color:var(--green);font-size:13px">${escHtml(e.payload.after ?? "")}</div>
+          </div>
+        </div>
+        <pre style="margin-top:8px">${JSON.stringify(e.payload, null, 2)}</pre>`;
+    } else {
+      bodyContent = `<pre>${JSON.stringify(e.payload, null, 2)}</pre>`;
+    }
 
     return `
-      <div class="event-item">
+      <div class="event-item" data-key="${key}">
         <div class="event-header" onclick="toggleEvent(this)">
           <span class="event-type" style="color:${typeColor}">${e.event_type}</span>
           ${badges.join(" ")}
           <span class="event-time">${time}</span>
-          <span style="color:var(--muted);font-size:11px;margin-left:8px">▼</span>
+          <span style="color:var(--muted);font-size:11px;margin-left:8px">${isOpen ? "▲" : "▼"}</span>
         </div>
-        <div class="event-body">
-          <pre>${JSON.stringify(e.payload, null, 2)}</pre>
+        ${metaRow}
+        <div class="event-body${isOpen ? " open" : ""}">
+          ${bodyContent}
         </div>
       </div>
     `;
@@ -104,7 +153,10 @@ function toggleEvent(header) {
   const body = header.nextElementSibling;
   body.classList.toggle("open");
   const arrow = header.querySelector("span:last-child");
-  arrow.textContent = body.classList.contains("open") ? "▲" : "▼";
+  const isOpen = body.classList.contains("open");
+  arrow.textContent = isOpen ? "▲" : "▼";
+  const key = header.closest(".event-item").dataset.key;
+  if (isOpen) expandedKeys.add(key); else expandedKeys.delete(key);
 }
 
 function updateStats(events) {
@@ -152,12 +204,18 @@ async function injectEvents() {
   const recipient = document.getElementById("sim-recipient").value;
   const count = parseInt(document.getElementById("sim-count").value) || 1;
 
+  // profile.update.bio uses docs schema with different payload fields
+  const isProfileBio = type === "profile.update.bio";
+  const body = isProfileBio
+    ? JSON.stringify({ sender_id: sender, recipient_id: recipient, schema: "docs" })
+    : JSON.stringify({ sender_id: sender, recipient_id: recipient });
+
   const results = [];
   for (let i = 0; i < count; i++) {
     const r = await fetch(`/api/simulate/${type}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sender_id: sender, recipient_id: recipient }),
+      body,
     });
     const data = await r.json();
     results.push(data);

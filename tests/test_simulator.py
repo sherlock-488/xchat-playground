@@ -72,6 +72,11 @@ class TestEventSimulator:
     def test_generated_events_have_timestamps(self, sim):
         for et in EventType:
             event = sim.generate(et)
+            # profile.update.bio uses docs schema (official XAA envelope) which
+            # does not include created_at — this matches the official docs.x.com example
+            if et == EventType.PROFILE_UPDATE_BIO:
+                assert "data" in event  # docs schema has XAA envelope
+                continue
             assert "created_at" in event
             assert event["created_at"].endswith("Z")
 
@@ -135,3 +140,69 @@ class TestEventSimulator:
         event = sim.generate(EventType.CHAT_RECEIVED, schema="official", strict=False)
         assert "_schema" in event
         assert "_note" in event
+
+
+class TestContractSimulator:
+    """Contract tests — verify fixture shapes match official docs or observed sources."""
+
+    def test_profile_update_bio_docs_schema_matches_official_example(self):
+        """profile.update.bio docs schema must exactly match docs.x.com quickstart example."""
+        sim = EventSimulator()
+        event = sim.generate(
+            EventType.PROFILE_UPDATE_BIO,
+            schema="docs",
+            filter_user_id="2244994945",
+            bio_before="Mars & Cars",
+            bio_after="Mars, Cars & AI",
+            tag="Xdevelopers' bio updates",
+        )
+        # Must have XAA envelope
+        assert "data" in event
+        data = event["data"]
+        # filter.user_id required
+        assert "filter" in data
+        assert data["filter"]["user_id"] == "2244994945"
+        # event_type required
+        assert data["event_type"] == "profile.update.bio"
+        # tag optional but present when given
+        assert data.get("tag") == "Xdevelopers' bio updates"
+        # payload must have before/after
+        assert "payload" in data
+        assert data["payload"]["before"] == "Mars & Cars"
+        assert data["payload"]["after"] == "Mars, Cars & AI"
+
+    def test_profile_update_bio_without_tag(self):
+        """tag field should be absent when not provided."""
+        sim = EventSimulator()
+        event = sim.generate(EventType.PROFILE_UPDATE_BIO, schema="docs")
+        assert "tag" not in event["data"]
+
+    def test_observed_schema_has_source_annotation(self):
+        """observed schema must include _schema='observed-xaa' annotation."""
+        sim = EventSimulator()
+        event = sim.generate(EventType.CHAT_RECEIVED, schema="observed")
+        assert event.get("_schema") == "observed-xaa"
+
+    def test_official_alias_emits_deprecation_warning(self):
+        """schema='official' must emit DeprecationWarning and behave like 'observed'."""
+        import warnings
+        sim = EventSimulator()
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            event = sim.generate(EventType.CHAT_RECEIVED, schema="official")
+        assert any(issubclass(warning.category, DeprecationWarning) for warning in w)
+        # Should still produce observed-xaa envelope
+        assert "data" in event
+        assert event["data"]["event_type"] == "chat.received"
+
+    def test_chat_received_observed_envelope_structure(self):
+        """chat.received observed schema must have data.payload with encoded_event."""
+        sim = EventSimulator()
+        event = sim.generate(EventType.CHAT_RECEIVED, schema="observed", strict=True)
+        assert "data" in event
+        payload = event["data"]["payload"]
+        assert "encoded_event" in payload
+        assert payload["encoded_event"].startswith("STUB_ENC_")
+        assert "encrypted_conversation_key" in payload
+        assert "conversation_key_version" in payload
+
