@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![X Developer Forum](https://img.shields.io/badge/X%20Dev-Forum-1d9bf0)](https://devcommunity.x.com)
 
-**Not an official X / Anthropic SDK.** This is an independent developer tool — a local harness for testing, replaying, and debugging X Activity API webhooks before touching production.
+**Not an official X SDK.** This is an independent developer tool — a local harness for testing, replaying, and debugging X Activity API webhooks before touching production.
 
 ---
 
@@ -213,6 +213,13 @@ Found a new XChat API bug? [Open a Repro Pack issue](../../issues/new?template=r
 if it's reproducible, we'll add it as a preset.
 
 > **Policy note for bot builders:** If you use this playground to build automated bots, note that X's Developer Guidelines require automated accounts to carry an Automated label, disclose the operator in bio, and provide opt-out. AI-generated replies require additional approval. This tool is a testing harness — what you build with it is your responsibility.
+
+---
+
+## Related
+
+**Want a production-structured Python starter for your XChat bot?**
+→ [xchat-bot-starter-pro](https://github.com/sherlock-488/xchat-bot-starter-pro) — clean architecture, dual transport (stream + webhook), CLI, Docker, CI, 5 example bots.
 
 ---
 
