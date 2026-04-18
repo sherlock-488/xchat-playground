@@ -4,7 +4,7 @@ Three fixture schemas are available:
 
   "demo"     — Flat structure for teaching and local testing. Easy to read.
                Uses direct_message_events / encrypted_content style.
-               NOT the official XAA envelope — for education only.
+               NOT the observed XAA envelope — for education only.
 
   "docs"     — Mirrors payload examples given in official docs.x.com pages.
                Currently only profile.update.bio has a complete official

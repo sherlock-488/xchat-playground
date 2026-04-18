@@ -9,7 +9,7 @@ Root cause:
   /2/dm_events endpoint no longer returns message content for
   encrypted conversations. The message content is only accessible
   via the encoded_event field in the Activity Stream event payload
-  (official XAA envelope: data.payload.encoded_event).
+  (observed XAA envelope: data.payload.encoded_event).
 
 This is a breaking change from the pre-E2EE DM API behavior.
 
@@ -51,7 +51,7 @@ class EncryptedLookupEmptyPack:
         }
 
     def _build_scenario(self) -> dict:
-        # Simulate the event (official XAA envelope from Activity Stream)
+        # Simulate the event (observed XAA envelope from Activity Stream)
         event = {
             "data": {
                 "event_type": "chat.received",

@@ -49,7 +49,7 @@ Aligned with official X Activity API docs as of 2026-04-17.
 | Real E2EE decryption (`crypto real`) | ⚠️ Placeholder — awaits `chat-xdk` stable release | — |
 | Activity Stream delivery | ℹ️ Not in scope — this tool focuses on the webhook path | — |
 
-**Can be validated against a real X Activity public event today via `profile.update.bio`** — no special OAuth scopes required.
+**Can be validated against a real X Activity public event today via `profile.update.bio`** — no private-event OAuth scopes required for the monitored user. You still need an approved X developer app and Bearer Token to register the webhook and subscription.
 
 > **Schema labels:** `docs` = matches official docs.x.com delivery example. `observed` = inferred from xchat-bot-python source, not yet in docs.x.com. `demo` = flat teaching format for local testing only.
 

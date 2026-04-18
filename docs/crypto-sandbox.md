@@ -36,7 +36,7 @@ uv run playground crypto real "REAL_ENCRYPTED_PAYLOAD" --state-file state.json
 ## The decryption flow
 
 ```
-chat.received event arrives (official XAA envelope)
+chat.received event arrives (observed XAA envelope — inferred from xchat-bot-python)
   │
   └── data.payload
         ├── encoded_event              ← base64-encoded encrypted ciphertext

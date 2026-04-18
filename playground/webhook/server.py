@@ -327,10 +327,10 @@ def create_app() -> FastAPI:
             # Build canonical export envelope that preserves event_type
             # and is replayable by 'playground replay run'
             if raw and "data" in raw:
-                # Real webhook received official XAA envelope — export as-is (scrubbed)
+                # Real webhook received observed XAA envelope — export as-is (scrubbed)
                 export_obj = recorder.record(raw)
             elif isinstance(payload, dict) and "data" in payload:
-                # Simulated official schema: payload IS the XAA envelope already
+                # Simulated observed schema: payload IS the XAA envelope already
                 # (avoid double-wrapping into {"event_type", "payload": {"data": ...}})
                 export_obj = recorder.record(payload)
             else:
