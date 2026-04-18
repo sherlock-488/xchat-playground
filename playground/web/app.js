@@ -323,7 +323,7 @@ async function decryptStub() {
   el.style.display = "block";
 
   if (!payload) {
-    el.textContent = "Please enter an encoded_event value (demo: STUB_ENC_… | official: data.payload.encoded_event).";
+    el.textContent = "Please enter an encoded_event value (demo: STUB_ENC_… | observed: data.payload.encoded_event).";
     return;
   }
 

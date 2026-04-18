@@ -1,6 +1,6 @@
 {
-  "_schema": "official-xaa",
-  "_note": "Based on xchat-bot-python (github.com/xdevplatform/xchat-bot-python). Field-level schema inferred from official bot source — not yet fully documented by X. Update when docs.x.com publishes complete XChat payload reference.",
+  "_schema": "observed-xaa",
+  "_note": "Based on xchat-bot-python (github.com/xdevplatform/xchat-bot-python). Field-level schema inferred from official bot source \u2014 not yet fully documented by X. Update when docs.x.com publishes complete XChat payload reference.",
   "data": {
     "event_type": "chat.received",
     "payload": {

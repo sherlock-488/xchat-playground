@@ -104,7 +104,7 @@ def test_simulate_unknown_type_returns_400(client):
     assert r.status_code == 400
 
 
-def test_simulate_official_schema_unsupported_event_returns_400(client):
+def test_simulate_observed_schema_unsupported_event_returns_400(client):
     """official schema on chat.sent/conversation_join → 400, not 500."""
     for event_type in ("chat.sent", "chat.conversation_join"):
         r = client.post(f"/api/simulate/{event_type}", json={"schema": "official"})
@@ -252,13 +252,13 @@ def test_two_app_instances_have_separate_event_logs():
 # ── Official XAA envelope roundtrip ──────────────────────────────────────────
 
 
-def test_official_envelope_webhook_export_roundtrip(monkeypatch):
+def test_observed_envelope_webhook_export_roundtrip(monkeypatch):
     """Official XAA envelope: POST /webhook → /api/events/export → event_type preserved."""
     monkeypatch.delenv("CONSUMER_SECRET", raising=False)
     c = TestClient(create_app())
 
     # Send an official XAA envelope to /webhook (no secret → no sig required)
-    official_event = {
+    observed_event = {
         "data": {
             "event_type": "chat.received",
             "payload": {
@@ -272,7 +272,7 @@ def test_official_envelope_webhook_export_roundtrip(monkeypatch):
     }
     r = c.post(
         "/webhook",
-        content=json.dumps(official_event).encode(),
+        content=json.dumps(observed_event).encode(),
         headers={"Content-Type": "application/json"},
     )
     assert r.status_code == 200
@@ -377,7 +377,7 @@ def test_webhook_no_secret_accepts_unsigned(monkeypatch):
 # ── P0-B: simulate official → export no double-wrap ──────────────────────────
 
 
-def test_simulate_official_export_not_double_wrapped(client):
+def test_simulate_observed_export_not_double_wrapped(client):
     """simulate chat.received with schema=official → export → no double-wrapped envelope."""
     # Inject an official-schema simulated event
     r = client.post("/api/simulate/chat.received", json={"schema": "official"})
@@ -393,13 +393,13 @@ def test_simulate_official_export_not_double_wrapped(client):
     exported = [json.loads(line) for line in lines]
 
     # Find the official event — it should have data.event_type at the top level
-    official_events = [
+    observed_events = [
         e for e in exported if e.get("data", {}).get("event_type") == "chat.received"
     ]
-    assert official_events, "Official XAA event should appear in export"
+    assert observed_events, "Observed XAA event should appear in export"
 
     # Verify NO double-wrap: payload should NOT be nested inside another payload
-    event = official_events[0]
+    event = observed_events[0]
     # data.payload should contain XAA fields, not another {"event_type", "payload"} wrapper
     inner = event["data"]["payload"]
     assert "encoded_event" in inner, "encoded_event should be directly in data.payload"

@@ -93,7 +93,7 @@ class TestEventSimulator:
         ids = [e["direct_message_events"][0]["id"] for e in events]
         assert len(set(ids)) == 10, "Message IDs should be unique"
 
-    def test_official_schema_encoded_event_decodable_by_stub_crypto(self, sim):
+    def test_observed_schema_encoded_event_decodable_by_stub_crypto(self, sim):
         """official schema encoded_event must use STUB_ENC_ prefix — StubCrypto can decode it."""
         from playground.crypto.stub import StubCrypto
 
@@ -116,18 +116,18 @@ class TestEventSimulator:
         )
         assert len(result["plaintext"]) > 0
 
-    def test_official_schema_rejected_for_chat_sent(self, sim):
+    def test_observed_schema_rejected_for_chat_sent(self, sim):
         """schema='official' on chat.sent should raise ValueError (not yet modelled)."""
         with pytest.raises(ValueError, match="only modelled for"):
             sim.generate(EventType.CHAT_SENT, schema="official")
 
-    def test_official_schema_rejected_for_conversation_join(self, sim):
+    def test_observed_schema_rejected_for_conversation_join(self, sim):
         """schema='official' on conversation_join should raise ValueError."""
         with pytest.raises(ValueError, match="only modelled for"):
             sim.generate(EventType.CONVERSATION_JOIN, schema="official")
 
-    def test_strict_official_strips_metadata(self, sim):
-        """strict=True should remove _schema and _note from official fixture."""
+    def test_strict_observed_strips_metadata(self, sim):
+        """strict=True should remove _schema and _note from observed fixture."""
         event = sim.generate(EventType.CHAT_RECEIVED, schema="official", strict=True)
         assert "_schema" not in event, "_schema should be stripped in strict mode"
         assert "_note" not in event, "_note should be stripped in strict mode"
@@ -135,17 +135,17 @@ class TestEventSimulator:
         assert "data" in event
         assert event["data"]["event_type"] == "chat.received"
 
-    def test_non_strict_official_keeps_metadata(self, sim):
-        """Without strict=True, _schema and _note should be present."""
+    def test_non_strict_observed_keeps_metadata(self, sim):
+        """Without strict, _schema and _note should be present."""
         event = sim.generate(EventType.CHAT_RECEIVED, schema="official", strict=False)
         assert "_schema" in event
         assert "_note" in event
 
 
 class TestContractSimulator:
-    """Contract tests — verify fixture shapes match official docs or observed sources."""
+    """Contract tests — verify fixture shapes match docs.x.com examples or observed sources."""
 
-    def test_profile_update_bio_docs_schema_matches_official_example(self):
+    def test_profile_update_bio_docs_schema_matches_docs_example(self):
         """profile.update.bio docs schema must exactly match docs.x.com quickstart example."""
         sim = EventSimulator()
         event = sim.generate(
@@ -183,7 +183,7 @@ class TestContractSimulator:
         event = sim.generate(EventType.CHAT_RECEIVED, schema="observed")
         assert event.get("_schema") == "observed-xaa"
 
-    def test_official_alias_emits_deprecation_warning(self):
+    def test_official_alias_still_works_with_deprecation_warning(self):
         """schema='official' must emit DeprecationWarning and behave like 'observed'."""
         import warnings
         sim = EventSimulator()
