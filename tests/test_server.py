@@ -426,10 +426,18 @@ def test_contract_xaa_envelope_preserves_filter_and_tag(monkeypatch):
             "payload": {"before": "old bio", "after": "new bio"},
         }
     }
-    r = c.post("/webhook", content=json.dumps(payload), headers={"Content-Type": "application/json"})
+    r = c.post(
+        "/webhook",
+        content=json.dumps(payload),
+        headers={"Content-Type": "application/json"},
+    )
     assert r.status_code == 200
     events = c.get("/api/events").json()["events"]
-    bio_events = [e for e in events if e["event_type"] == "profile.update.bio" and not e.get("demo")]
+    bio_events = [
+        e
+        for e in events
+        if e["event_type"] == "profile.update.bio" and not e.get("demo")
+    ]
     assert bio_events, "profile.update.bio event not found in log"
     ev = bio_events[-1]
     assert ev.get("filter") == {"user_id": "2244994945"}
@@ -448,10 +456,16 @@ def test_contract_xaa_envelope_source_schema_observed_for_chat(monkeypatch):
             "payload": {"encoded_event": "STUB_ENC_dGVzdA=="},
         },
     }
-    r = c.post("/webhook", content=json.dumps(payload), headers={"Content-Type": "application/json"})
+    r = c.post(
+        "/webhook",
+        content=json.dumps(payload),
+        headers={"Content-Type": "application/json"},
+    )
     assert r.status_code == 200
     events = c.get("/api/events").json()["events"]
-    chat_events = [e for e in events if e["event_type"] == "chat.received" and not e.get("demo")]
+    chat_events = [
+        e for e in events if e["event_type"] == "chat.received" and not e.get("demo")
+    ]
     assert chat_events
     assert chat_events[-1].get("source_schema") == "observed"
 
@@ -465,9 +479,15 @@ def test_contract_demo_flat_fixture_tagged_demo(monkeypatch):
         "created_at": "2026-04-17T00:00:00Z",
         "for_user_id": "123",
     }
-    r = c.post("/webhook", content=json.dumps(payload), headers={"Content-Type": "application/json"})
+    r = c.post(
+        "/webhook",
+        content=json.dumps(payload),
+        headers={"Content-Type": "application/json"},
+    )
     assert r.status_code == 200
     events = c.get("/api/events").json()["events"]
-    sent_events = [e for e in events if e["event_type"] == "chat.sent" and not e.get("demo")]
+    sent_events = [
+        e for e in events if e["event_type"] == "chat.sent" and not e.get("demo")
+    ]
     assert sent_events
     assert sent_events[-1].get("source_schema") == "demo"

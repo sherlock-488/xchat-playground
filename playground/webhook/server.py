@@ -148,18 +148,20 @@ def create_app() -> FastAPI:
         # chat events — demo schema (flat, easy to read)
         for et in [EventType.CHAT_RECEIVED, EventType.CHAT_SENT]:
             payload = sim.generate(et)
-            _log({
-                "received_at": now,
-                "event_type": et.value,
-                "signature_valid": None,
-                "source_schema": "demo",
-                "filter": None,
-                "tag": None,
-                "simulated": True,
-                "demo": True,
-                "payload": payload,
-                "raw": payload,
-            })
+            _log(
+                {
+                    "received_at": now,
+                    "event_type": et.value,
+                    "signature_valid": None,
+                    "source_schema": "demo",
+                    "filter": None,
+                    "tag": None,
+                    "simulated": True,
+                    "demo": True,
+                    "payload": payload,
+                    "raw": payload,
+                }
+            )
         # profile.update.bio — docs schema (official docs.x.com example)
         profile_payload = sim.generate(
             EventType.PROFILE_UPDATE_BIO,
@@ -167,18 +169,22 @@ def create_app() -> FastAPI:
             filter_user_id="2244994945",
             tag="demo subscription",
         )
-        _log({
-            "received_at": now,
-            "event_type": "profile.update.bio",
-            "signature_valid": None,
-            "source_schema": "docs",
-            "filter": {"user_id": "2244994945"},
-            "tag": "demo subscription",
-            "simulated": True,
-            "demo": True,
-            "payload": profile_payload.get("data", {}).get("payload", profile_payload),
-            "raw": profile_payload,
-        })
+        _log(
+            {
+                "received_at": now,
+                "event_type": "profile.update.bio",
+                "signature_valid": None,
+                "source_schema": "docs",
+                "filter": {"user_id": "2244994945"},
+                "tag": "demo subscription",
+                "simulated": True,
+                "demo": True,
+                "payload": profile_payload.get("data", {}).get(
+                    "payload", profile_payload
+                ),
+                "raw": profile_payload,
+            }
+        )
 
     _inject_demo_events()
 

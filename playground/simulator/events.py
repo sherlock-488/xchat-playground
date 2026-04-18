@@ -149,7 +149,13 @@ class EventSimulator:
         # Default: demo schema
         if event_type == EventType.CHAT_RECEIVED:
             return self._chat_received(
-                sender_id, recipient_id, conv_id, msg_id, now, encrypted, message_text,
+                sender_id,
+                recipient_id,
+                conv_id,
+                msg_id,
+                now,
+                encrypted,
+                message_text,
             )
         elif event_type == EventType.CHAT_SENT:
             return self._chat_sent(sender_id, recipient_id, conv_id, msg_id, now)

@@ -186,6 +186,7 @@ class TestContractSimulator:
     def test_official_alias_still_works_with_deprecation_warning(self):
         """schema='official' must emit DeprecationWarning and behave like 'observed'."""
         import warnings
+
         sim = EventSimulator()
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -205,4 +206,3 @@ class TestContractSimulator:
         assert payload["encoded_event"].startswith("STUB_ENC_")
         assert "encrypted_conversation_key" in payload
         assert "conversation_key_version" in payload
-
