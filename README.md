@@ -10,15 +10,7 @@
 
 **Not an official X SDK.** This is an independent developer tool — a local harness for testing, replaying, and debugging X Activity API webhooks before touching production.
 
-<!-- TODO: add demo GIF here
-     Suggested content (15-20s):
-     1. uv run playground serve → open http://localhost:7474/ui
-     2. Simulate → select profile.update.bio → Inject Events
-     3. Events panel: docs badge, filter.user_id, tag, before/after diff
-     4. Simulate → select chat.received (observed) → Inject
-     5. Export JSONL button
-     Record with Shift+Cmd+5, convert: ffmpeg -i demo.mov -vf "fps=12,scale=1100:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 docs/demo.gif
--->
+![xchat-playground demo](docs/demo.gif)
 
 ---
 
