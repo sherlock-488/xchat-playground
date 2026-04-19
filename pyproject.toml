@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "xchat-playground"
 version = "0.1.0"
-description = "Local simulator & replay lab for XChat bots — debug webhooks, replay events, test E2EE flows without burning API credits"
+description = "Local replay lab for X Activity / XChat webhook development — debug CRC, signatures, payloads, and schema drift without burning API calls"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"

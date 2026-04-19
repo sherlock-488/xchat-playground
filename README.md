@@ -1,7 +1,7 @@
 # xchat-playground 🧪
 
-> **Webhook-first local simulator & replay lab for X Activity API / XChat bots.**
-> Debug CRC, signatures, and E2EE migration issues — all offline, zero API credits burned.
+> **Local replay lab for X Activity / XChat webhook development.**
+> Debug CRC, signatures, payloads, and schema drift — without burning API calls.
 
 [![CI](https://github.com/sherlock-488/xchat-playground/actions/workflows/ci.yml/badge.svg)](https://github.com/sherlock-488/xchat-playground/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
@@ -11,6 +11,19 @@
 **Not an official X SDK.** This is an independent developer tool — a local harness for testing, replaying, and debugging X Activity API webhooks before touching production.
 
 ![xchat-playground demo](docs/demo.gif)
+
+Local-first by default. Not mock-only: validate the same webhook pipeline against a real X Activity public event via `profile.update.bio` using an approved X developer app + App Bearer Token.
+
+## What is real vs experimental
+
+| Path | Status |
+|------|--------|
+| Local XAA simulation | ✅ Supported |
+| CRC / signature debugging | ✅ Supported |
+| Replay / diff / repro packs | ✅ Supported |
+| Real `profile.update.bio` public smoke test | ✅ Supported |
+| Observed `chat.received` encrypted payload fixture | ⚠️ Experimental / observed |
+| Real XChat plaintext decrypt | ⚠️ Experimental (chat-xdk not yet stable) |
 
 ---
 
