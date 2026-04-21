@@ -206,3 +206,39 @@ class TestContractSimulator:
         assert payload["encoded_event"].startswith("STUB_ENC_")
         assert "encrypted_conversation_key" in payload
         assert "conversation_key_version" in payload
+
+    def test_observed_schema_includes_conversation_key_change_event(self):
+        """observed chat.received must include conversation_key_change_event field."""
+        sim = EventSimulator()
+        event = sim.generate(EventType.CHAT_RECEIVED, schema="observed", strict=True)
+        payload = event["data"]["payload"]
+        assert "conversation_key_change_event" in payload
+
+    def test_observed_schema_includes_sender_id(self):
+        """observed chat.received must include sender_id in payload."""
+        sim = EventSimulator()
+        event = sim.generate(
+            EventType.CHAT_RECEIVED,
+            schema="observed",
+            sender_id="999888777",
+            strict=True,
+        )
+        payload = event["data"]["payload"]
+        assert "sender_id" in payload
+        assert payload["sender_id"] == "999888777"
+
+    def test_observed_schema_source_is_observed(self):
+        """observed schema must set _schema='observed-xaa', not 'docs'."""
+        sim = EventSimulator()
+        event = sim.generate(EventType.CHAT_RECEIVED, schema="observed")
+        assert event.get("_schema") == "observed-xaa"
+
+    def test_observed_fixture_file_has_new_fields(self):
+        """Bundled observed_xaa_chat_received.json must include new required fields."""
+        sim = EventSimulator()
+        fixture = sim.load_fixture("observed_xaa_chat_received")
+        payload = fixture["data"]["payload"]
+        assert "conversation_key_version" in payload
+        assert "conversation_key_change_event" in payload
+        assert "sender_id" in payload
+        assert fixture.get("_schema") == "observed-xaa"

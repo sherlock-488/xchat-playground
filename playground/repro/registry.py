@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from playground.repro.packs.chat_webhook_not_received import ChatWebhookNotReceivedPack
+from playground.repro.packs.encrypted_chat_decrypt_pending import (
+    EncryptedChatDecryptPendingPack,
+)
 from playground.repro.packs.encrypted_lookup_empty import EncryptedLookupEmptyPack
 from playground.repro.packs.legacy_dm_stops_after_e2ee import LegacyDmStopsAfterE2eePack
 from playground.repro.packs.xaa_webhook_smoke_test import XAAWebhookSmokeTestPack
@@ -16,6 +19,7 @@ class ReproRegistry:
         "chat-webhook-not-received": ChatWebhookNotReceivedPack,
         "encrypted-lookup-empty": EncryptedLookupEmptyPack,
         "legacy-dm-stops-after-e2ee": LegacyDmStopsAfterE2eePack,
+        "encrypted-chat-decrypt-pending": EncryptedChatDecryptPendingPack,
     }
 
     @classmethod

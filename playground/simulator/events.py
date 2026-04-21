@@ -339,8 +339,10 @@ class EventSimulator:
                 "payload": {
                     "conversation_id": conversation_id,
                     "encoded_event": stub_encoded,
+                    "sender_id": sender_id,
                     "encrypted_conversation_key": stub_enc_key,
                     "conversation_key_version": "1",
+                    "conversation_key_change_event": None,
                     "conversation_token": f"STUB_TOKEN_{message_id}",
                 },
             },

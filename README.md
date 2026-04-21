@@ -14,6 +14,24 @@
 
 Local-first by default. Not mock-only: validate the same webhook pipeline against a real X Activity public event via `profile.update.bio` using an approved X developer app + App Bearer Token.
 
+## Current XChat API status
+
+| Area | Status |
+|------|--------|
+| X Activity stream / webhook | Documented |
+| `profile.update.bio` public smoke test | Documented |
+| `chat.received` event name | Documented |
+| Chat API routes (`GET /2/chat/conversations`, `POST /2/chat/conversations/{id}/messages`, etc.) | Documented in official migration guide |
+| XAA `chat.received` encrypted payload fields | Official sample / observed |
+| `chat-xdk` decrypt / encrypt | Pending stable public release |
+| Real XChat plaintext decrypt | Experimental — requires `chat-xdk` stable release |
+| Chat media upload routes | Coming soon / not yet in prod |
+
+**Language notes:**
+- "`chat.received` event name is documented" — the event type string itself is official.
+- "`chat.received` encrypted payload shape is sample-driven / observed" — field-level schema is inferred from the official xchat-bot-python sample, not yet fully documented in docs.x.com.
+- "Real decrypt remains experimental" — `chat-xdk` has not yet reached a stable public release. Do not rely on plaintext decrypt in production.
+
 ## What is real vs experimental
 
 | Path | Status |
@@ -22,8 +40,8 @@ Local-first by default. Not mock-only: validate the same webhook pipeline agains
 | CRC / signature debugging | ✅ Supported |
 | Replay / diff / repro packs | ✅ Supported |
 | Real `profile.update.bio` public smoke test | ✅ Supported |
-| Observed `chat.received` encrypted payload fixture | ⚠️ Experimental / observed |
-| Real XChat plaintext decrypt | ⚠️ Experimental (chat-xdk not yet stable) |
+| Observed `chat.received` encrypted payload fixture | ⚠️ Observed / sample-driven |
+| Real XChat plaintext decrypt | ⚠️ Experimental (`chat-xdk` not yet stable) |
 
 ---
 
@@ -53,7 +71,7 @@ xchat-playground gives you a **local harness** to reproduce, replay, and diff al
 
 ## Scope and honest limits
 
-Aligned with official X Activity API docs as of 2026-04-17.
+Aligned with X Activity API docs and the official XChat migration guide as of 2026-04-21.
 
 | Area | Status | Schema |
 |------|--------|--------|
@@ -147,6 +165,7 @@ One-click reproductions of the most common XChat API issues reported in the deve
 | `chat-webhook-not-received` | CRC not handled / localhost URL / secret mismatch / subscription missing |
 | `encrypted-lookup-empty` | `GET /2/dm_events/{id}` returns `{}` for E2EE conversations |
 | `legacy-dm-stops-after-e2ee` | Legacy DM endpoint stops updating after conversation upgrade |
+| `encrypted-chat-decrypt-pending` | Received `chat.received` but cannot read plaintext — `chat-xdk` pending |
 
 Run any pack with `--verbose` for step-by-step explanation and workaround.
 

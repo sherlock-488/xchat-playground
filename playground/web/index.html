@@ -209,7 +209,7 @@
   <header>
     <span style="font-size:20px">🧪</span>
     <h1>xchat-playground</h1>
-    <span class="version">v0.1.0</span>
+    <span class="version">v0.1.1</span>
     <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
       <span class="status-dot" id="status-dot"></span>
       <span class="status-label" id="status-label">connecting...</span>
@@ -392,8 +392,17 @@
           <div class="card-header"><span>🔑</span><h2>Crypto Sandbox (Stub Mode)</h2></div>
           <div class="card-body">
             <div class="alert alert-warn">
-              Stub mode only. Real-key decryption requires state.json from xchat-bot-python.
-              Use <code>playground crypto real</code> in the CLI for real decryption.
+              <strong>Stub mode only.</strong> Real-key decryption requires <code>state.json</code> from xchat-bot-python.
+              Use <code>playground crypto real</code> only as an experimental placeholder flow.
+              Real plaintext decrypt requires <code>chat-xdk</code>, which is still pending stable public release.
+            </div>
+            <div class="alert alert-info">
+              <strong>XChat payloads are end-to-end encrypted.</strong>
+              The following fields in an observed <code>chat.received</code> payload are encrypted / opaque:
+              <code>encoded_event</code>, <code>encrypted_conversation_key</code>,
+              <code>conversation_key_change_event</code>, <code>conversation_token</code>.
+              Real plaintext decrypt requires <code>chat-xdk</code>, which is pending stable public release.
+              This sandbox only decodes <code>STUB_ENC_</code> demo fixtures — it cannot decrypt real XChat payloads.
             </div>
             <div class="form-group">
               <label>Encoded Event (demo: <code>STUB_ENC_…</code> | observed: <code>data.payload.encoded_event</code>)</label>

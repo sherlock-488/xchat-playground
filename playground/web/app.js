@@ -94,6 +94,10 @@ function renderEvents(events) {
       "demo":     "badge-blue",
     }[e.source_schema] || "badge-muted";
     if (e.source_schema) badges.push(`<span class="badge ${schemaBadgeColor}">${escHtml(e.source_schema)}</span>`);
+    // observed XChat payload status note
+    if (e.event_type === "chat.received" && e.source_schema === "observed") {
+      badges.push(`<span class="badge badge-yellow" title="XChat payloads are end-to-end encrypted. encoded_event, encrypted_conversation_key, conversation_key_change_event, and conversation_token are encrypted/observed fields. Real plaintext decrypt requires chat-xdk (pending stable release).">encrypted payload only</span>`);
+    }
 
     const typeColor = {
       "chat.received": "var(--green)",
@@ -338,7 +342,7 @@ async function decryptStub() {
       el.textContent = `Failed to decode stub payload: ${e}`;
     }
   } else {
-    el.textContent = `Mode:      stub\nPlaintext: [REAL_ENCRYPTED: ${payload.slice(0, 40)}...]\nNotes:     This looks like a real encrypted payload.\n           Use 'playground crypto real' with state.json for real decryption.`;
+    el.textContent = `Mode:      stub\nPlaintext: [REAL_ENCRYPTED: ${payload.slice(0, 40)}...]\nNotes:     This looks like a real encrypted payload.\n           Real plaintext decrypt is not available in the playground yet.\n           Use chat-xdk when it becomes publicly/stably available.`;
   }
 }
 
@@ -374,6 +378,11 @@ function getBuiltinPacks() {
       id: "legacy-dm-stops-after-e2ee",
       title: "Legacy dm_events stops updating after E2EE upgrade",
       description: "Migrate from legacy DM polling to Activity API with chat.received subscription.",
+    },
+    {
+      id: "encrypted-chat-decrypt-pending",
+      title: "Received chat.received but cannot read plaintext",
+      description: "XChat payloads are E2EE. encoded_event is encrypted. Real decrypt requires chat-xdk (pending stable release).",
     },
   ];
 }

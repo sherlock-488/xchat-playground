@@ -6,8 +6,10 @@
     "payload": {
       "conversation_id": "STUB_CONV_111222333_444555666",
       "encoded_event": "STUB_ENCODED_EVENT_base64==",
+      "sender_id": "STUB_SENDER_111222333",
       "encrypted_conversation_key": "STUB_ENC_KEY_base64==",
       "conversation_key_version": "1",
+      "conversation_key_change_event": null,
       "conversation_token": "STUB_CONV_TOKEN_optional"
     }
   }

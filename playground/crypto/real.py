@@ -1,4 +1,8 @@
-"""Real-key crypto mode — decrypt XChat messages using state.json.
+"""Experimental real-key placeholder mode.
+
+This module validates the expected flow and handles STUB_ENC_ fallback,
+but it does not implement real XChat plaintext decrypt. Real decrypt
+requires chat-xdk, which is pending stable public release.
 
 Requires a state.json produced by xchat-bot-python's login + unlock flow:
   uv run python main.py login
@@ -11,14 +15,11 @@ state.json contains:
     "user_id": "..."
   }
 
-XChat uses XChaCha20-Poly1305 for message encryption.
-Each message includes a per-recipient encrypted key blob.
-
 IMPORTANT:
   - Never commit state.json to git (it contains your private keys)
   - This module requires the 'cryptography' package (included in dependencies)
-  - If xchat-bot-python's chat-xdk updates its key format, this module
-    may need updating. Check the xchat-bot-python changelog.
+  - Real XChat decrypt will be enabled here once chat-xdk reaches stable
+    public release. Check the xchat-bot-python changelog for updates.
 
 Reference:
   https://github.com/xdevplatform/xchat-bot-python
@@ -33,14 +34,10 @@ from typing import Any
 
 
 class RealCrypto:
-    """Decrypt XChat messages using private keys from state.json.
+    """Experimental placeholder — does not decrypt real XChat payloads.
 
-    This is a best-effort implementation based on the xchat-bot-python
-    template. The exact key derivation and encryption format may change
-    as chat-xdk reaches its official release.
-
-    For production bots, use the official xchat-bot-python decrypt
-    utilities directly rather than this module.
+    Validates the expected flow and falls back to stub decode for STUB_ENC_
+    fixtures. Real XChat decrypt requires chat-xdk (pending stable release).
     """
 
     def __init__(self, state_file: Path = Path("state.json")):
